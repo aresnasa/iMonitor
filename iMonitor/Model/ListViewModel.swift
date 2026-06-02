@@ -1,6 +1,6 @@
 //
 //  ListViewModel.swift
-//  ITrafficMonitorForMac
+//  iMonitor
 //
 //  Created by f.zou on 2021/5/23.
 //
@@ -31,6 +31,8 @@ class ListViewModel: ObservableObject {
                 items[i].name = newItem.name
                 items[i].inBytes = newItem.inBytes
                 items[i].outBytes = newItem.outBytes
+                items[i].cpuUsage = newItem.cpuUsage
+                items[i].memoryUsed = newItem.memoryUsed
             } else {
                 items.append(newItem)
             }

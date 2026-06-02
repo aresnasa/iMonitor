@@ -94,3 +94,6 @@ fastlane/test_output
 iOSInjectionProject/
 
 /.idea
+
+# Build output
+build/

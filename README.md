@@ -1,35 +1,55 @@
-# ITraffic-monitor-for-mac
-Monitor for displaying process traffic on Mac Status bar
+# iMonitor
 
-## MacOS version required
-The macOS version should >= 10.15, since the project use swiftUI
+A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and network speed per process.
 
-## Feature
-1. Show network speed by process
-2. Adapt dark mode
-3. Use nettop's delta mode to make statistics more accurate
+## Features
 
-## Install & Update
-One of the following way is fine
+- **System Metrics** — Real-time CPU, Memory, and GPU utilization with animated bar charts in the menu bar
+- **Network Monitoring** — Upload/download speed with per-process breakdown
+- **Per-Process Details** — CPU% and memory usage for each process
+- **Dark Mode** — Automatically adapts to system appearance
+- **Universal Binary** — Native support for Apple Silicon (arm64) and Intel (x86_64)
 
-1. Download the zip file from [the latest page](https://github.com/foamzou/ITraffic-monitor-for-mac/releases/latest)
-2. Use Homebrew
-   - Install: `brew install itraffic`
-   - Update: `brew update && brew upgrade itraffic`
+## Requirements
 
-## Development (XcodeGen)
-This project is generated from `project.yml` via XcodeGen.
+- macOS 11.0 (Big Sur) or later
 
-1. Install XcodeGen: `brew install xcodegen`
+## Install
+
+**Homebrew:**
+
+```bash
+brew tap aresnasa/homebrew-tap
+brew install imonitor
+```
+
+**Download:**
+
+Download the latest zip from [Releases](https://github.com/aresnasa/iMonitor/releases/latest), extract, and move `iMonitor.app` to `/Applications`.
+
+## Build from Source
+
+1. Install [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
 2. Generate the Xcode project: `xcodegen generate`
-3. Open `ITrafficMonitorForMac.xcodeproj`
+3. Open `iMonitor.xcodeproj` and build, or run: `xcodebuild -project iMonitor.xcodeproj -scheme iMonitor -configuration Release build ONLY_ACTIVE_ARCH=NO`
+
+## Release
+
+```bash
+./release.sh [version]
+```
+
+This script builds a universal binary, packages it, creates a GitHub release, and updates the Homebrew tap.
 
 ## Snapshot
+
 <img src="./snapshot.png" width="600" />
 
-## Thanks
-- [eul](https://github.com/gao-sun/eul): Use some code of the project Coz I'm a newer of swift
+## Acknowledgments
 
-## Star History
+- [eul](https://github.com/gao-sun/eul) — System monitoring API reference
+- [ITraffic](https://github.com/foamzou/ITraffic-monitor-for-mac) — Original network monitoring project
 
-[![Star History Chart](https://api.star-history.com/svg?repos=foamzou/ITraffic-monitor-for-mac&type=Date)](https://star-history.com/#foamzou/ITraffic-monitor-for-mac&Date)
+## License
+
+MIT

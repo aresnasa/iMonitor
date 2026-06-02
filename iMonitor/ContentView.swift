@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  ITrafficMonitorForMac
-//
-//  Created by f.zou on 2021/5/19.
-//
-
 import SwiftUI
 
 struct ContentView: View {
@@ -23,7 +16,7 @@ struct ContentView: View {
                     .font(.system(size: 11, weight: .regular))
                 Spacer()
                 MenuItem(id: "menu.github", text: "Github", action: {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/foamzou/ITraffic-monitor-for-mac")!)
+                    NSWorkspace.shared.open(URL(string: "https://github.com/aresnasa/iMonitor")!)
                 })
                 MenuItem(id: "menu.quit", text: "Quit", action: AppDelegate.quit)
             }
@@ -32,8 +25,7 @@ struct ContentView: View {
 
             Divider()
 
-            // Process list (ScrollView + LazyVStack for full layout control;
-            // SwiftUI List adds platform-specific leading insets that hid icons.)
+            // Process list
             ScrollView {
                 VStack(spacing: 0) {
                     let maxTotal = viewModel.items
@@ -48,7 +40,7 @@ struct ContentView: View {
             }
             .frame(maxHeight: 420)
         }
-        .frame(width: 340)
+        .frame(width: 440)
         .background(Color("ContentBGColor"))
     }
 }
@@ -62,6 +54,8 @@ struct ProcessRow: View {
         let inActive  = processEntity.inBytes  > 0
         let outActive = processEntity.outBytes > 0
         let anyActive = inActive || outActive
+        let cpuActive = processEntity.cpuUsage > 0.001
+        let memActive = processEntity.memoryUsed > 0
 
         let total = processEntity.inBytes + processEntity.outBytes
         let totalRatio = maxTotal > 0 ? CGFloat(total) / CGFloat(maxTotal) : 0
@@ -79,7 +73,29 @@ struct ProcessRow: View {
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Down: same size as up; color only when active
+            // CPU
+            HStack(spacing: 2) {
+                Text("C")
+                    .font(.system(size: 10))
+                    .foregroundColor(cpuActive ? .secondary : Color.secondary.opacity(0.35))
+                Text(formatCpuPercent(processEntity.cpuUsage))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(cpuActive ? .primary : Color.secondary.opacity(0.35))
+                    .frame(width: 36, alignment: .trailing)
+            }
+
+            // Memory
+            HStack(spacing: 2) {
+                Text("M")
+                    .font(.system(size: 10))
+                    .foregroundColor(memActive ? .secondary : Color.secondary.opacity(0.35))
+                Text(formatBytesCompact(bytes: Int(processEntity.memoryUsed)))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(memActive ? .primary : Color.secondary.opacity(0.35))
+                    .frame(width: 36, alignment: .trailing)
+            }
+
+            // Down
             HStack(spacing: 2) {
                 Text("↓")
                     .font(.system(size: 10))
@@ -87,10 +103,10 @@ struct ProcessRow: View {
                 Text(formatBytesCompact(bytes: processEntity.inBytes))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(inActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 44, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
 
-            // Up: symmetric — same dimensions, same color rules
+            // Up
             HStack(spacing: 2) {
                 Text("↑")
                     .font(.system(size: 10))
@@ -98,14 +114,11 @@ struct ProcessRow: View {
                 Text(formatBytesCompact(bytes: processEntity.outBytes))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(outActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 44, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
         }
         .contentShape(Rectangle())
         .background(
-            // Single neutral activity bar. Length = this row's total
-            // (in + out) / page-max-total. Direction info stays in
-            // the numbers. Color.primary auto-adapts to dark mode.
             GeometryReader { proxy in
                 HStack(spacing: 0) {
                     Rectangle()
@@ -116,6 +129,13 @@ struct ProcessRow: View {
             }
         )
     }
+}
+
+private func formatCpuPercent(_ value: Double) -> String {
+    let pct = value * 100
+    if pct < 0.1 { return "—" }
+    if pct < 10 { return String(format: "%.1f%%", pct) }
+    return String(format: "%.0f%%", pct)
 }
 
 struct ContentView_Previews: PreviewProvider {

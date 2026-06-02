@@ -1,4 +1,4 @@
-name: ITrafficMonitorForMac
+name: iMonitor
 
 options:
   minimumXcodeGenVersion: 2.44.0
@@ -11,53 +11,54 @@ configs:
 
 settings:
   base:
-    PRODUCT_NAME: ITraffic
-    MACOSX_DEPLOYMENT_TARGET: "10.15"
+    PRODUCT_NAME: iMonitor
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 targets:
-  ITrafficMonitorForMac:
+  iMonitor:
     type: application
     platform: macOS
-    deploymentTarget: "10.15"
+    deploymentTarget: "11.0"
     sources:
-      - path: ITrafficMonitorForMac
+      - path: iMonitor
         excludes:
           - Info.plist
-          - ITrafficMonitorForMac.entitlements
+          - iMonitor.entitlements
           - Assets.xcassets
           - "Preview Content"
           - Base.lproj
-      - path: ITrafficMonitorForMac/Assets.xcassets
+      - path: iMonitor/Assets.xcassets
         buildPhase: resources
-      - path: ITrafficMonitorForMac/Preview Content/Preview Assets.xcassets
+      - path: iMonitor/Preview Content/Preview Assets.xcassets
         buildPhase: resources
-      - path: ITrafficMonitorForMac/Base.lproj/Main.storyboard
+      - path: iMonitor/Base.lproj/Main.storyboard
         buildPhase: resources
     entitlements:
-      path: ITrafficMonitorForMac/ITrafficMonitorForMac.entitlements
+      path: iMonitor/iMonitor.entitlements
     settings:
       base:
+        ARCHS: "$(ARCHS_STANDARD)"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Automatic
         COMBINE_HIDPI_IMAGES: YES
-        CURRENT_PROJECT_VERSION: 7
-        DEVELOPMENT_ASSET_PATHS: "\"ITrafficMonitorForMac/Preview Content\""
+        CURRENT_PROJECT_VERSION: 1
+        DEVELOPMENT_ASSET_PATHS: "\"iMonitor/Preview Content\""
         ENABLE_PREVIEWS: YES
-        INFOPLIST_FILE: ITrafficMonitorForMac/Info.plist
+        INFOPLIST_FILE: iMonitor/Info.plist
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
-        MARKETING_VERSION: 0.2.0
-        PRODUCT_BUNDLE_IDENTIFIER: com.foamzou.ITrafficMonitorForMac
+        MARKETING_VERSION: 0.3.0
+        PRODUCT_BUNDLE_IDENTIFIER: com.aresnasa.iMonitor
         SWIFT_VERSION: 5.0
 
 schemes:
-  ITrafficMonitorForMac:
+  iMonitor:
     build:
       targets:
-        ITrafficMonitorForMac: all
+        iMonitor: all
     run:
       config: Debug
     analyze:
