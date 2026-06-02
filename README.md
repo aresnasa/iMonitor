@@ -20,7 +20,7 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 
 ```bash
 brew tap aresnasa/homebrew-tap
-brew install imonitor
+brew install --cask imonitor
 ```
 
 **Download:**

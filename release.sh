@@ -11,6 +11,7 @@ APP_NAME="iMonitor"
 SCHEME="iMonitor"
 PROJECT="iMonitor.xcodeproj"
 BREW_TAP="${REPO_OWNER}/homebrew-tap"
+BUNDLE_ID="com.aresnasa.iMonitor"
 
 # Determine version
 if [ -n "${1:-}" ]; then
@@ -85,7 +86,7 @@ if command -v gh &> /dev/null; then
 
 ### Installation
 \`\`\`bash
-brew install ${BREW_TAP}/${APP_NAME}
+brew install --cask ${BREW_TAP}/${APP_NAME}
 \`\`\`
 Or download the zip from the assets below." || echo "Release may already exist, uploading asset..."
 
@@ -93,7 +94,7 @@ Or download the zip from the assets below." || echo "Release may already exist, 
 
     # Update Homebrew tap
     DOWNLOAD_URL="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${VERSION}/${ZIP_NAME}"
-    echo "==> Updating Homebrew formula..."
+    echo "==> Updating Homebrew cask..."
     echo "    Download URL: ${DOWNLOAD_URL}"
     echo "    SHA256: ${SHA256}"
 
@@ -103,38 +104,35 @@ Or download the zip from the assets below." || echo "Release may already exist, 
         gh repo create "${BREW_TAP}" --public --description "Homebrew tap for iMonitor"
     fi
 
-    # Generate formula
-    FORMULA_DIR="/tmp/${BREW_TAP//\//-}"
-    rm -rf "${FORMULA_DIR}"
-    git clone "https://github.com/${BREW_TAP}.git" "${FORMULA_DIR}" 2>/dev/null || mkdir -p "${FORMULA_DIR}"
+    # Generate cask
+    CASK_DIR="/tmp/${BREW_TAP//\//-}"
+    rm -rf "${CASK_DIR}"
+    git clone "https://github.com/${BREW_TAP}.git" "${CASK_DIR}" 2>/dev/null || mkdir -p "${CASK_DIR}"
 
-    mkdir -p "${FORMULA_DIR}/Formula"
+    mkdir -p "${CASK_DIR}/Casks"
 
-    cat > "${FORMULA_DIR}/Formula/${APP_NAME}.rb" << FORMULA_EOF
-class Imonitor < Formula
+    cat > "${CASK_DIR}/Casks/${APP_NAME}.rb" << CASK_EOF
+cask "imonitor" do
+  version "${VERSION}"
+  sha256 "${SHA256}"
+
+  url "${DOWNLOAD_URL}"
+  name "iMonitor"
   desc "macOS menu bar system monitor - CPU, Memory, GPU, Network"
   homepage "https://github.com/${REPO_OWNER}/${REPO_NAME}"
-  url "${DOWNLOAD_URL}"
-  sha256 "${SHA256}"
-  version "${VERSION}"
 
-  depends_on :macos => :big_sur
+  depends_on macos: ">= :big_sur"
 
-  def install
-    prefix.install "${APP_NAME}.app"
-  end
+  app "${APP_NAME}.app"
 
-  def caveats
-    <<~EOS
-      iMonitor has been installed to #{prefix}/${APP_NAME}.app
-      You may want to move it to /Applications manually:
-        mv #{prefix}/${APP_NAME}.app /Applications/
-    EOS
-  end
+  zap trash: [
+    "~/Library/Caches/${BUNDLE_ID}",
+    "~/Library/Preferences/${BUNDLE_ID}.plist",
+  ]
 end
-FORMULA_EOF
+CASK_EOF
 
-    cd "${FORMULA_DIR}"
+    cd "${CASK_DIR}"
     git add -A
     git commit -m "bump ${APP_NAME} to v${VERSION}" || echo "No changes to commit"
     git push origin main 2>/dev/null || echo "Push may have failed, please push manually"
@@ -143,7 +141,7 @@ FORMULA_EOF
     echo ""
     echo "==> Done! Install with:"
     echo "    brew tap ${BREW_TAP}"
-    echo "    brew install ${APP_NAME}"
+    echo "    brew install --cask ${APP_NAME}"
 else
     echo "==> gh CLI not found. Manual steps:"
     echo "    1. Create a GitHub release at: https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/new"
