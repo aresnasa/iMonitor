@@ -1,6 +1,6 @@
 //
 //  NettopRunner.swift
-//  ITrafficMonitorForMac
+//  iMonitor
 //
 //  Direct Swift driver for /usr/bin/nettop. Replaces the bundled
 //  Go `nettop-line` helper, removing the need for an extra binary

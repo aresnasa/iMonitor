@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "B91A63F9A62F17B369E63010"
-               BuildableName = "ITrafficMonitorForMac.app"
-               BlueprintName = "ITrafficMonitorForMac"
-               ReferencedContainer = "container:ITrafficMonitorForMac.xcodeproj">
+               BlueprintIdentifier = "7EB7DDD17695DCF3CF0CAD24"
+               BuildableName = "iMonitor.app"
+               BlueprintName = "iMonitor"
+               ReferencedContainer = "container:iMonitor.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B91A63F9A62F17B369E63010"
-            BuildableName = "ITrafficMonitorForMac.app"
-            BlueprintName = "ITrafficMonitorForMac"
-            ReferencedContainer = "container:ITrafficMonitorForMac.xcodeproj">
+            BlueprintIdentifier = "7EB7DDD17695DCF3CF0CAD24"
+            BuildableName = "iMonitor.app"
+            BlueprintName = "iMonitor"
+            ReferencedContainer = "container:iMonitor.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -57,10 +57,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B91A63F9A62F17B369E63010"
-            BuildableName = "ITrafficMonitorForMac.app"
-            BlueprintName = "ITrafficMonitorForMac"
-            ReferencedContainer = "container:ITrafficMonitorForMac.xcodeproj">
+            BlueprintIdentifier = "7EB7DDD17695DCF3CF0CAD24"
+            BuildableName = "iMonitor.app"
+            BlueprintName = "iMonitor"
+            ReferencedContainer = "container:iMonitor.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -76,10 +76,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "B91A63F9A62F17B369E63010"
-            BuildableName = "ITrafficMonitorForMac.app"
-            BlueprintName = "ITrafficMonitorForMac"
-            ReferencedContainer = "container:ITrafficMonitorForMac.xcodeproj">
+            BlueprintIdentifier = "7EB7DDD17695DCF3CF0CAD24"
+            BuildableName = "iMonitor.app"
+            BlueprintName = "iMonitor"
+            ReferencedContainer = "container:iMonitor.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

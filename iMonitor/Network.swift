@@ -1,16 +1,10 @@
-//
-//  Network.swift
-//  ITrafficMonitorForMac
-//
-//  Created by f.zou on 2021/5/23.
-//
-
 import Foundation
 import SwiftUI
 
 class Network {
     @ObservedObject var viewModel = SharedStore.listViewModel
     @ObservedObject var statusDataModel = SharedStore.statusDataModel
+    @ObservedObject var systemDataModel = SharedStore.systemDataModel
     @ObservedObject var globalModel = SharedStore.globalModel
 
     private let interval = 2
@@ -23,12 +17,25 @@ class Network {
         return r
     }()
 
+    private lazy var systemMonitor: SystemMonitor = {
+        let m = SystemMonitor(interval: interval)
+        m.onUpdate = { [weak self] metrics, processes in
+            self?.handleSystemUpdate(metrics: metrics, processes: processes)
+        }
+        return m
+    }()
+
+    // Buffer for per-process CPU/Mem data, merged on next nettop frame
+    private var processResources: [Int: ProcessResourceInfo] = [:]
+
     public func startListenNetwork() {
         runner.start()
+        systemMonitor.start()
     }
 
     public func stopListenNetwork() {
         runner.stop()
+        systemMonitor.stop()
     }
 
     private func handleFrame(_ lines: [String]) {
@@ -43,13 +50,35 @@ class Network {
             return entity
         }
 
+        // Merge per-process CPU/Mem data
+        let mergedEntities = entities.map { entity -> ProcessEntity in
+            var e = entity
+            if let res = processResources[e.pid] {
+                e.cpuUsage = res.cpuUsage
+                e.memoryUsed = res.memoryUsed
+            }
+            return e
+        }
+
         // parser stores raw delta bytes; convert to bytes/sec for the status bar.
         let inRate  = totalInBytes  / interval
         let outRate = totalOutBytes / interval
 
         DispatchQueue.main.async {
             self.statusDataModel.update(totalInBytes: inRate, totalOutBytes: outRate)
-            self.viewModel.updateData(newItems: entities)
+            self.viewModel.updateData(newItems: mergedEntities)
+        }
+    }
+
+    private func handleSystemUpdate(metrics: SystemMetrics, processes: [ProcessResourceInfo]) {
+        var map: [Int: ProcessResourceInfo] = [:]
+        for p in processes {
+            map[p.pid] = p
+        }
+        processResources = map
+
+        DispatchQueue.main.async {
+            self.systemDataModel.update(metrics: metrics)
         }
     }
 

@@ -1,6 +1,6 @@
 //
 //  StatusDataModel.swift
-//  ITrafficMonitorForMac
+//  iMonitor
 //
 //  Created by f.zou on 2021/5/23.
 //
