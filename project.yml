@@ -48,7 +48,7 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_ASSET_PATHS: "\"iMonitor/Preview Content\""
-        ENABLE_PREVIEWS: YES
+
         INFOPLIST_FILE: iMonitor/Info.plist
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
