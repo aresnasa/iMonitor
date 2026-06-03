@@ -76,7 +76,7 @@ cask "imonitor" do
 
   url "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/v#{version}/${DMG_NAME}"
   name "${APP_NAME}"
-  desc "macOS menu bar system monitor – CPU, Memory, GPU, Network"
+  desc "Menu bar system monitor – CPU, Memory, GPU, Network"
   homepage "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}"
 
   livecheck do
@@ -84,7 +84,7 @@ cask "imonitor" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :big_sur"
+  depends_on macos: :big_sur
 
   app "${APP_NAME}.app"
 
