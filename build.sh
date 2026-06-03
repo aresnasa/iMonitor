@@ -118,24 +118,23 @@ success "Universal binary built"
 step "Code signing"
 
 if [ "$SIGN_ID" = "-" ]; then
-    # Ad-hoc: no Hardened Runtime, no timestamp, minimal entitlements.
-    # macOS 26 AMFI rejects: adhoc + restricted entitlements + --options runtime.
-    ACTIVE_ENTITLEMENTS="$ENTITLEMENTS_ADHOC"
-    info "Mode: ad-hoc (no Hardened Runtime)"
+    # Ad-hoc: no Hardened Runtime, no timestamp, NO entitlements.
+    # macOS 26 AMFI rejects: adhoc + any entitlements + --options runtime.
+    # Even network.client with ad-hoc is rejected on some machines.
+    # iMonitor doesn't need entitlements: nettop is a subprocess, not in-process.
+    ACTIVE_ENTITLEMENTS=""
+    info "Mode: ad-hoc (no Hardened Runtime, no entitlements)"
 else
     # Developer ID: full Hardened Runtime + secure timestamp for notarisation.
     ACTIVE_ENTITLEMENTS="$ENTITLEMENTS_ADHOC"
     info "Mode: Developer ID (Hardened Runtime)"
 fi
 
-if [ ! -f "$ACTIVE_ENTITLEMENTS" ]; then
-    fail "Entitlements file not found: $ACTIVE_ENTITLEMENTS"
+# Copy ad-hoc entitlements into app bundle Resources (for Cask postflight re-signing)
+if [ -f "$ENTITLEMENTS_ADHOC" ]; then
+    cp "$ENTITLEMENTS_ADHOC" "${RESOURCES_DIR}/"
+    info "Copied ad-hoc entitlements into app bundle"
 fi
-info "Using entitlements: $ACTIVE_ENTITLEMENTS"
-
-# Copy ad-hoc entitlements into app bundle Resources (for Cask postflight)
-cp "$ACTIVE_ENTITLEMENTS" "${RESOURCES_DIR}/"
-info "Copied ad-hoc entitlements into app bundle"
 
 # Sign nested bundles first (frameworks, dylibs)
 NESTED_COUNT=0
@@ -164,7 +163,6 @@ info "Signed ${NESTED_COUNT} nested bundle(s)"
 # Sign main app
 if [ "$SIGN_ID" = "-" ]; then
     SIGN_FLAGS=(--force --sign "$SIGN_ID"
-                --entitlements "$ACTIVE_ENTITLEMENTS"
                 --timestamp=none)
 else
     SIGN_FLAGS=(--force --sign "$SIGN_ID"
