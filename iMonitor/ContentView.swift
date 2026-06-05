@@ -6,6 +6,8 @@ struct ContentView: View {
     @ObservedObject var statusData = SharedStore.statusDataModel
     @ObservedObject var themeModel = SharedStore.themeModel
     @State private var showSettings = false
+    @State private var currentPage = 0
+    private let pageSize = 10
     let appVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
 
     var body: some View {
@@ -70,7 +72,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                     .padding(.trailing, 4)
                 ForEach(SortField.allCases, id: \.self) { field in
-                    Button(action: { viewModel.sortField = field }) {
+                    Button(action: { viewModel.sortField = field; currentPage = 0 }) {
                         Text(field.displayName)
                             .font(.system(size: 10, weight: viewModel.sortField == field ? .semibold : .regular))
                             .foregroundColor(viewModel.sortField == field ? .accentColor : .secondary)
@@ -96,14 +98,45 @@ struct ContentView: View {
                     let maxTotal = viewModel.items
                         .map { $0.inBytes + $0.outBytes }
                         .max() ?? 0
-                    ForEach(Array(viewModel.items.prefix(10))) { entity in
+                    let totalPages = max(1, (viewModel.items.count + pageSize - 1) / pageSize)
+                    let pageStart = currentPage * pageSize
+                    let pageItems = Array(viewModel.items.dropFirst(pageStart).prefix(pageSize))
+                    ForEach(pageItems) { entity in
                         ProcessRow(processEntity: entity, maxTotal: maxTotal)
                             .padding(.horizontal, 14)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 3)
+                    }
+
+                    // Pagination
+                    if totalPages > 1 {
+                        HStack(spacing: 12) {
+                            Spacer()
+                            Button(action: { currentPage = max(0, currentPage - 1) }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(currentPage > 0 ? .accentColor : Color.secondary.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(currentPage == 0)
+
+                            Text("\(currentPage + 1)/\(totalPages)")
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundColor(.secondary)
+
+                            Button(action: { currentPage = min(totalPages - 1, currentPage + 1) }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundColor(currentPage < totalPages - 1 ? .accentColor : Color.secondary.opacity(0.3))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(currentPage >= totalPages - 1)
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
                     }
                 }
             }
-            .frame(maxHeight: 100)
+            .frame(maxHeight: 240)
         }
         .frame(width: 420)
         .background(Color("ContentBGColor"))
@@ -207,50 +240,50 @@ struct ProcessRow: View {
                 .foregroundColor(anyActive ? .primary : Color.primary.opacity(0.6))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 90, alignment: .leading)
 
             // CPU
-            HStack(spacing: 2) {
-                Text("C")
-                    .font(.system(size: 9))
+            HStack(spacing: 1) {
+                Text("CPU")
+                    .font(.system(size: 8, weight: .medium))
                     .foregroundColor(cpuActive ? .secondary : Color.secondary.opacity(0.35))
                 Text(formatCpuPercent(processEntity.cpuUsage))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(cpuActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 32, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
 
             // Memory
-            HStack(spacing: 2) {
-                Text("M")
-                    .font(.system(size: 9))
+            HStack(spacing: 1) {
+                Text("MEM")
+                    .font(.system(size: 8, weight: .medium))
                     .foregroundColor(memActive ? .secondary : Color.secondary.opacity(0.35))
                 Text(formatBytesCompact(bytes: Int(processEntity.memoryUsed)))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(memActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 32, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
 
             // Down
-            HStack(spacing: 2) {
+            HStack(spacing: 1) {
                 Text("↓")
                     .font(.system(size: 9))
                     .foregroundColor(inActive ? .secondary : Color.secondary.opacity(0.35))
                 Text(formatBytesCompact(bytes: processEntity.inBytes))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(inActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 32, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
 
             // Up
-            HStack(spacing: 2) {
+            HStack(spacing: 1) {
                 Text("↑")
                     .font(.system(size: 9))
                     .foregroundColor(outActive ? .secondary : Color.secondary.opacity(0.35))
                 Text(formatBytesCompact(bytes: processEntity.outBytes))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(outActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 32, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
         }
         .contentShape(Rectangle())
