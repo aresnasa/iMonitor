@@ -12,6 +12,10 @@ class StatusBarIconView: NSView {
     var totalInBytes: Int = 0 { didSet { needsDisplay = true } }
     var totalOutBytes: Int = 0 { didSet { needsDisplay = true } }
 
+    var usedColor: NSColor = ColorThemePreset.default.colors.used.nsColor { didSet { needsDisplay = true } }
+    var overloadedColor: NSColor = ColorThemePreset.default.colors.overloaded.nsColor { didSet { needsDisplay = true } }
+    var freeColor: NSColor = ColorThemePreset.default.colors.free.nsColor { didSet { needsDisplay = true } }
+
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -27,12 +31,7 @@ class StatusBarIconView: NSView {
             let usedHeight = h * CGFloat(clamped)
             let usedRect = NSRect(x: x, y: 0, width: barWidth, height: usedHeight)
 
-            let color: NSColor
-            if clamped < 0.85 {
-                color = NSColor.systemOrange.withAlphaComponent(0.9)
-            } else {
-                color = NSColor.systemRed.withAlphaComponent(0.9)
-            }
+            let color = clamped < ThemeModel.overloadedThreshold ? usedColor : overloadedColor
             context.setFillColor(color.cgColor)
             let usedPath = CGPath(roundedRect: usedRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
             context.addPath(usedPath)
@@ -42,7 +41,7 @@ class StatusBarIconView: NSView {
             let freeHeight = h - usedHeight
             if freeHeight > 0 {
                 let freeRect = NSRect(x: x, y: freeY, width: barWidth, height: freeHeight)
-                context.setFillColor(NSColor.systemGreen.withAlphaComponent(0.4).cgColor)
+                context.setFillColor(freeColor.cgColor)
                 let freePath = CGPath(roundedRect: freeRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
                 context.addPath(freePath)
                 context.fillPath()

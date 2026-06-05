@@ -3,6 +3,7 @@ import SwiftUI
 struct StatusBarView: View {
     @ObservedObject var statusDataModel = SharedStore.statusDataModel
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
+    @ObservedObject var themeModel = SharedStore.themeModel
 
     private let barWidth: CGFloat = 4
     private let barHeight: CGFloat = 20
@@ -59,13 +60,13 @@ struct StatusBarView: View {
             // Bar chart
             GeometryReader { geo in
                 ZStack(alignment: .bottom) {
-                    // Background (free = green)
+                    // Background (free)
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(Color.green.opacity(0.35))
+                        .fill(themeModel.colors.free.color)
 
-                    // Used portion (yellow)
+                    // Used portion
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(Color.yellow.opacity(0.8))
+                        .fill(usage < ThemeModel.overloadedThreshold ? themeModel.colors.used.color : themeModel.colors.overloaded.color)
                         .frame(height: geo.size.height * CGFloat(usage))
                         .animation(.easeInOut(duration: 0.6), value: usage)
                 }

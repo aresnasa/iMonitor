@@ -74,6 +74,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusBar() {
         guard let icon = statusBarIcon else { return }
 
+        let themeColors = SharedStore.themeModel.colors
+        icon.usedColor = themeColors.used.nsColor
+        icon.overloadedColor = themeColors.overloaded.nsColor
+        icon.freeColor = themeColors.free.nsColor
+
         icon.cpuUsage = systemDataModel.cpuUsage
         icon.memoryUsage = systemDataModel.memoryTotal > 0
             ? Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) : 0
