@@ -4,6 +4,8 @@ struct ContentView: View {
     @ObservedObject var viewModel = SharedStore.listViewModel
     @ObservedObject var systemData = SharedStore.systemDataModel
     @ObservedObject var statusData = SharedStore.statusDataModel
+    @ObservedObject var themeModel = SharedStore.themeModel
+    @State private var showSettings = false
     let appVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
 
     var body: some View {
@@ -19,6 +21,12 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                     .font(.system(size: 11, weight: .regular))
                 Spacer()
+                Button(action: { showSettings.toggle() }) {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 12))
+                        .foregroundColor(showSettings ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
                 MenuItem(id: "menu.github", text: "Github", action: {
                     NSWorkspace.shared.open(URL(string: "https://github.com/aresnasa/iMonitor")!)
                 })
@@ -29,11 +37,16 @@ struct ContentView: View {
 
             Divider()
 
+            if showSettings {
+                SettingsView()
+                Divider()
+            }
+
             // System overview
             VStack(spacing: 6) {
-                UsageBarRow(label: "CPU", pct: systemData.cpuUsage, detail: formatPercent(systemData.cpuUsage))
-                UsageBarRow(label: "MEM", pct: memUsage, detail: formatMem(systemData.memoryUsed, total: systemData.memoryTotal))
-                UsageBarRow(label: "GPU", pct: systemData.gpuUsage, detail: formatPercent(systemData.gpuUsage))
+                UsageBarRow(label: "CPU", pct: systemData.cpuUsage, detail: formatPercent(systemData.cpuUsage), themeColors: themeModel.colors)
+                UsageBarRow(label: "MEM", pct: memUsage, detail: formatMem(systemData.memoryUsed, total: systemData.memoryTotal), themeColors: themeModel.colors)
+                UsageBarRow(label: "GPU", pct: systemData.gpuUsage, detail: formatPercent(systemData.gpuUsage), themeColors: themeModel.colors)
 
                 HStack {
                     Spacer()
@@ -130,6 +143,7 @@ struct UsageBarRow: View {
     let label: String
     let pct: Double
     let detail: String
+    let themeColors: ThemeColors
 
     var body: some View {
         HStack(spacing: 8) {
@@ -141,7 +155,7 @@ struct UsageBarRow: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.green.opacity(0.15))
+                        .fill(themeColors.free.color)
                     RoundedRectangle(cornerRadius: 3)
                         .fill(barColor)
                         .frame(width: geo.size.width * CGFloat(min(max(pct, 0), 1)))
@@ -162,8 +176,8 @@ struct UsageBarRow: View {
     }
 
     private var barColor: Color {
-        if pct < 0.85 { return .orange }
-        return .red
+        if pct < ThemeModel.overloadedThreshold { return themeColors.used.color }
+        return themeColors.overloaded.color
     }
 }
 

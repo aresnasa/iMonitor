@@ -12,6 +12,7 @@ enum SharedStore {
     static let statusDataModel = StatusDataModel()
     static let systemDataModel = SystemDataModel()
     static let globalModel = GlobalModel()
+    static let themeModel = ThemeModel()
 }
 
 extension View {
@@ -20,5 +21,6 @@ extension View {
         .environmentObject(SharedStore.statusDataModel)
         .environmentObject(SharedStore.systemDataModel)
         .environmentObject(SharedStore.globalModel)
+        .environmentObject(SharedStore.themeModel)
     }
 }

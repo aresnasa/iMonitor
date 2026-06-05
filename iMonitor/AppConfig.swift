@@ -9,6 +9,9 @@ enum AppConfig {
 
     @UserDefaultsWrapper(key: "statusBarRefreshInterval", default: 2.0)
     static var statusBarRefreshInterval: Double
+
+    @UserDefaultsWrapper(key: "colorTheme", default: "default")
+    static var colorTheme: String
 }
 
 @propertyWrapper
