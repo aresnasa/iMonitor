@@ -254,8 +254,14 @@ success "Prerequisites OK"
 if ! $SKIP_BUILD; then
     step "Building ${APP_NAME} v${VERSION}"
 
+    # Update MARKETING_VERSION in project.yml so xcodegen picks it up
+    if ! $DRY_RUN; then
+        sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: ${VERSION}/" "${PROJECT_ROOT}/project.yml"
+        success "Updated MARKETING_VERSION to ${VERSION} in project.yml"
+    fi
+
     if $DRY_RUN; then
-        info "[DRY RUN] Would run: MARKETING_VERSION=${VERSION} bash build.sh --dmg"
+        info "[DRY RUN] Would run: MARKETING_VERSION=${VERSION} bash build.sh --ci"
     else
         MARKETING_VERSION="$VERSION" bash "$BUILD_SCRIPT" --ci
         [ -f "$DMG_PATH" ] || fail "DMG not found: $DMG_PATH"

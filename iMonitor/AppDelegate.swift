@@ -1,5 +1,6 @@
 import Cocoa
 import SwiftUI
+import ServiceManagement
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -24,6 +25,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Register as login item (auto-launch at startup)
+        if SMAppService.mainApp.status != .enabled {
+            try? SMAppService.mainApp.register()
+        }
+
         self.contentView = ContentView()
         self.network = Network()
 
@@ -133,10 +139,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if panel == nil {
             let hostingView = NSHostingView(rootView: contentView.withGlobalEnvironmentObjects())
-            hostingView.frame.size = NSSize(width: 420, height: 440)
+            hostingView.frame.size = NSSize(width: 420, height: 380)
 
             panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 420, height: 440),
+                contentRect: NSRect(x: 0, y: 0, width: 420, height: 380),
                 styleMask: [.titled, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
