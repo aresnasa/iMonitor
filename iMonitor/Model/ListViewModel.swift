@@ -1,34 +1,36 @@
-//
-//  ListViewModel.swift
-//  iMonitor
-//
-//  Created by f.zou on 2021/5/23.
-//
-
 import Foundation
+
+enum SortField: String, CaseIterable {
+    case network = "NET"
+    case cpu = "CPU"
+    case memory = "MEM"
+
+    var displayName: String { rawValue }
+}
 
 class ListViewModel: ObservableObject {
 
     @Published var items: [ProcessEntity] = []
+    @Published var sortField: SortField = .network {
+        didSet { resort() }
+    }
+
     var globalModel = SharedStore.globalModel
     var gcCounter = 0
-    
+
     public func updateData(newItems: [ProcessEntity]) {
         if shouldClearItemsForReduceSomeMemory() {
             items.removeAll()
         }
 
-        var pid2IndexForItems = [String: Int]()
-        var pidInNewItems = [String: Int]()
+        var pid2IndexForItems = [Int: Int]()
+        var pidInNewItems = Set<Int>()
         for i in 0..<items.count {
-            pid2IndexForItems["\(items[i].pid)"] = i
+            pid2IndexForItems[items[i].pid] = i
         }
-        
+
         for newItem in newItems {
-            let i = pid2IndexForItems["\(newItem.pid)"] ?? -1
-            if i != -1 {
-                items[i].icon = newItem.icon
-                items[i].name = newItem.name
+            if let i = pid2IndexForItems[newItem.pid] {
                 items[i].inBytes = newItem.inBytes
                 items[i].outBytes = newItem.outBytes
                 items[i].cpuUsage = newItem.cpuUsage
@@ -36,25 +38,40 @@ class ListViewModel: ObservableObject {
             } else {
                 items.append(newItem)
             }
-            pidInNewItems["\(newItem.pid)"] = 1
+            pidInNewItems.insert(newItem.pid)
         }
-        
-        items = items.filter(){ pidInNewItems["\($0.pid)"] ?? -1 != -1 }
-        
+
+        items.removeAll { !pidInNewItems.contains($0.pid) }
+
+        resort()
+    }
+
+    private func resort() {
         items = sort(items: items)
     }
-    
+
     func sort(items: [ProcessEntity]) -> [ProcessEntity] {
-        return items.sorted {  (lhs:ProcessEntity, rhs:ProcessEntity) in
-            let lTotalBytes = lhs.inBytes + lhs.outBytes
-            let rTotalBytes = rhs.inBytes + rhs.outBytes
-            if lTotalBytes != rTotalBytes {
-                return lTotalBytes > rTotalBytes
+        switch sortField {
+        case .cpu:
+            return items.sorted { lhs, rhs in
+                if lhs.cpuUsage != rhs.cpuUsage { return lhs.cpuUsage > rhs.cpuUsage }
+                return lhs.name < rhs.name
             }
-            return lhs.name < rhs.name
+        case .memory:
+            return items.sorted { lhs, rhs in
+                if lhs.memoryUsed != rhs.memoryUsed { return lhs.memoryUsed > rhs.memoryUsed }
+                return lhs.name < rhs.name
+            }
+        case .network:
+            return items.sorted { lhs, rhs in
+                let lTotal = lhs.inBytes + lhs.outBytes
+                let rTotal = rhs.inBytes + rhs.outBytes
+                if lTotal != rTotal { return lTotal > rTotal }
+                return lhs.name < rhs.name
+            }
         }
     }
-    
+
     public func shouldClearItemsForReduceSomeMemory() -> Bool {
         gcCounter += 1
         if !self.globalModel.viewShowing && gcCounter >= 50 {

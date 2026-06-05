@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05F763526B26B532C240B352 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
+		3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */; };
 		3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD785E69FC443A189BD9EB /* StatusDataModel.swift */; };
 		3F360029FD2DFB5A2F9B6A2B /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */; };
 		45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B6A14EA4C47CCA67F0795B /* Network.swift */; };
@@ -21,6 +22,7 @@
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		ACC1FCD8574F709E05431DF6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B50740B11D3815E58EA39639 /* Preview Assets.xcassets */; };
 		BA546140676E413066A9B987 /* GlobalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */; };
+		BC66E4477878D921106D122C /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598007F9E4673ED0913AC8F2 /* AppConfig.swift */; };
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
 		C96D2943FBC8611CA2BF75C6 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */; };
@@ -33,6 +35,7 @@
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessEntity.swift; sourceTree = "<group>"; };
 		4F918A29C931619B1AFCE28C /* SystemDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemDataModel.swift; sourceTree = "<group>"; };
+		598007F9E4673ED0913AC8F2 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		59F05FCAA582E102F54E637A /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		5C1714B0FA7CF35930B27B5D /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
 		65B44EE509AF585A4BAD28AB /* NettopRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopRunner.swift; sourceTree = "<group>"; };
@@ -41,6 +44,7 @@
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		B50740B11D3815E58EA39639 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarIconView.swift; sourceTree = "<group>"; };
 		BB059BE9CB31C6EA3E6CFFAE /* iMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -87,12 +91,14 @@
 		5AC1F82B72045BFF4CB43DFD /* iMonitor */ = {
 			isa = PBXGroup;
 			children = (
+				598007F9E4673ED0913AC8F2 /* AppConfig.swift */,
 				E5138CFE282472B90031FD8A /* AppDelegate.swift */,
 				0330B7177E5F80F52A4E65CC /* Assets.xcassets */,
 				38EEF68863702ED88B8279DE /* ContentView.swift */,
 				733E532228253D04BA91E966 /* MenuItem.swift */,
 				E7B6A14EA4C47CCA67F0795B /* Network.swift */,
 				3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */,
+				B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */,
 				D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */,
 				59F05FCAA582E102F54E637A /* Store.swift */,
 				B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */,
@@ -189,6 +195,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BC66E4477878D921106D122C /* AppConfig.swift in Sources */,
 				5A1815D16384C124DD21C8BC /* AppDelegate.swift in Sources */,
 				C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */,
 				BA546140676E413066A9B987 /* GlobalModel.swift in Sources */,
@@ -197,6 +204,7 @@
 				BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */,
 				45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,
+				3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */,
 				C96D2943FBC8611CA2BF75C6 /* StatusBarView.swift in Sources */,
 				3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */,
 				A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */,
@@ -228,7 +236,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
@@ -287,7 +295,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -344,7 +352,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = iMonitor;
@@ -374,7 +382,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
