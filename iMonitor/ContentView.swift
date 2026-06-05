@@ -141,7 +141,7 @@ struct UsageBarRow: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(Color.green.opacity(0.15))
                     RoundedRectangle(cornerRadius: 3)
                         .fill(barColor)
                         .frame(width: geo.size.width * CGFloat(min(max(pct, 0), 1)))
