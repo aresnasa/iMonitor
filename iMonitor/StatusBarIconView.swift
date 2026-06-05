@@ -28,9 +28,7 @@ class StatusBarIconView: NSView {
             let usedRect = NSRect(x: x, y: 0, width: barWidth, height: usedHeight)
 
             let color: NSColor
-            if clamped < 0.6 {
-                color = NSColor.systemGreen.withAlphaComponent(0.85)
-            } else if clamped < 0.85 {
+            if clamped < 0.85 {
                 color = NSColor.systemOrange.withAlphaComponent(0.9)
             } else {
                 color = NSColor.systemRed.withAlphaComponent(0.9)
@@ -44,7 +42,7 @@ class StatusBarIconView: NSView {
             let freeHeight = h - usedHeight
             if freeHeight > 0 {
                 let freeRect = NSRect(x: x, y: freeY, width: barWidth, height: freeHeight)
-                context.setFillColor(NSColor.systemGreen.withAlphaComponent(0.3).cgColor)
+                context.setFillColor(NSColor.systemGreen.withAlphaComponent(0.4).cgColor)
                 let freePath = CGPath(roundedRect: freeRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
                 context.addPath(freePath)
                 context.fillPath()

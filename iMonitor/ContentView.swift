@@ -90,7 +90,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .frame(maxHeight: 220)
+            .frame(maxHeight: 180)
         }
         .frame(width: 420)
         .background(Color("ContentBGColor"))
@@ -162,7 +162,6 @@ struct UsageBarRow: View {
     }
 
     private var barColor: Color {
-        if pct < 0.6 { return .green }
         if pct < 0.85 { return .orange }
         return .red
     }
