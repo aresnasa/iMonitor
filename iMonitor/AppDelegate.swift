@@ -139,10 +139,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if panel == nil {
             let hostingView = NSHostingView(rootView: contentView.withGlobalEnvironmentObjects())
-            hostingView.frame.size = NSSize(width: 420, height: 380)
+            hostingView.frame.size = NSSize(width: 420, height: 300)
 
             panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 420, height: 380),
+                contentRect: NSRect(x: 0, y: 0, width: 420, height: 300),
                 styleMask: [.titled, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false

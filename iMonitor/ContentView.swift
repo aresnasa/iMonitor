@@ -90,7 +90,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .frame(maxHeight: 180)
+            .frame(maxHeight: 100)
         }
         .frame(width: 420)
         .background(Color("ContentBGColor"))
