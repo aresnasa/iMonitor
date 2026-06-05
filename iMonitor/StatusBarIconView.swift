@@ -80,8 +80,8 @@ class StatusBarIconView: NSView {
         let kb = Double(bytes) / 1024
         if kb < 1000 { return String(format: "%.0fK", kb) }
         let mb = kb / 1024
-        if mb < 1000 { return String(format: "%.1fM", mb) }
+        if mb < 1000 { return String(format: "%.0fM", mb) }
         let gb = mb / 1024
-        return String(format: "%.1fG", gb)
+        return String(format: "%.0fG", gb)
     }
 }
