@@ -27,15 +27,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.contentView = ContentView()
         self.network = Network()
 
-        // Width: bars(4*3+2*2=16) + gap(4) + net text(~68)
-        self.statusBarItem = NSStatusBar.system.statusItem(withLength: 88)
+        // Width: bars(4*3+2*2=16) + gap(4) + net text(~48)
+        self.statusBarItem = NSStatusBar.system.statusItem(withLength: 68)
 
         if let button = self.statusBarItem.button {
             button.action = #selector(statusBarClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
             self.statusBarIcon = StatusBarIconView()
-            statusBarIcon.frame = NSRect(x: 0, y: 0, width: 88, height: NSStatusBar.system.thickness)
+            statusBarIcon.frame = NSRect(x: 0, y: 0, width: 68, height: NSStatusBar.system.thickness)
             statusBarIcon.autoresizingMask = [.width, .height]
 
             button.subviews.forEach { $0.removeFromSuperview() }
