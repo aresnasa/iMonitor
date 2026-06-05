@@ -96,7 +96,7 @@ struct ContentView: View {
                     let maxTotal = viewModel.items
                         .map { $0.inBytes + $0.outBytes }
                         .max() ?? 0
-                    ForEach(viewModel.items) { entity in
+                    ForEach(Array(viewModel.items.prefix(10))) { entity in
                         ProcessRow(processEntity: entity, maxTotal: maxTotal)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 4)
