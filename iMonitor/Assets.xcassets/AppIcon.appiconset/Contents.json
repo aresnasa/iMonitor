@@ -1,68 +1,68 @@
 {
-  "images" : [
+  "images": [
     {
-      "filename" : "1Itraffic-logo16.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "16x16"
+      "idiom": "mac",
+      "scale": "1x",
+      "size": "16x16",
+      "filename": "iMonitor-icon-16.png"
     },
     {
-      "filename" : "1Itraffic-logo32.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "16x16"
+      "idiom": "mac",
+      "scale": "2x",
+      "size": "16x16",
+      "filename": "iMonitor-icon-32.png"
     },
     {
-      "filename" : "1Itraffic-logo32-1.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "32x32"
+      "idiom": "mac",
+      "scale": "1x",
+      "size": "32x32",
+      "filename": "iMonitor-icon-32.png"
     },
     {
-      "filename" : "1Itraffic-logo64.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "32x32"
+      "idiom": "mac",
+      "scale": "2x",
+      "size": "32x32",
+      "filename": "iMonitor-icon-64.png"
     },
     {
-      "filename" : "1Itraffic-logo128.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "128x128"
+      "idiom": "mac",
+      "scale": "1x",
+      "size": "128x128",
+      "filename": "iMonitor-icon-128.png"
     },
     {
-      "filename" : "1Itraffic-logo256.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "128x128"
+      "idiom": "mac",
+      "scale": "2x",
+      "size": "128x128",
+      "filename": "iMonitor-icon-256.png"
     },
     {
-      "filename" : "1Itraffic-logo256-1.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "256x256"
+      "idiom": "mac",
+      "scale": "1x",
+      "size": "256x256",
+      "filename": "iMonitor-icon-256.png"
     },
     {
-      "filename" : "1Itraffic-logo512.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "256x256"
+      "idiom": "mac",
+      "scale": "2x",
+      "size": "256x256",
+      "filename": "iMonitor-icon-512.png"
     },
     {
-      "filename" : "1Itraffic-logo512-1.png",
-      "idiom" : "mac",
-      "scale" : "1x",
-      "size" : "512x512"
+      "idiom": "mac",
+      "scale": "1x",
+      "size": "512x512",
+      "filename": "iMonitor-icon-512.png"
     },
     {
-      "filename" : "1Itraffic-logo1024.png",
-      "idiom" : "mac",
-      "scale" : "2x",
-      "size" : "512x512"
+      "idiom": "mac",
+      "scale": "2x",
+      "size": "512x512",
+      "filename": "iMonitor-icon-1024.png"
     }
   ],
-  "info" : {
-    "author" : "xcode",
-    "version" : 1
+  "info": {
+    "author": "xcode",
+    "version": 1
   }
 }

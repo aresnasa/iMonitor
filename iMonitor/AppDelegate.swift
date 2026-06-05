@@ -5,6 +5,7 @@ import SwiftUI
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     var statusBarItem: NSStatusItem!
+    var statusBarIcon: StatusBarIconView!
     var panel: NSPanel!
     var contentView: ContentView!
     var network: Network!
@@ -26,18 +27,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.contentView = ContentView()
         self.network = Network()
 
-        self.statusBarItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Width: bars(4*3+2*2=16) + gap(4) + net text(~48)
+        self.statusBarItem = NSStatusBar.system.statusItem(withLength: 68)
 
         if let button = self.statusBarItem.button {
             button.action = #selector(statusBarClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-            if let image = NSImage(systemSymbolName: "waveform.path.ecg", accessibilityDescription: "iMonitor") {
-                let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
-                button.image = image.withSymbolConfiguration(config)
-                button.imagePosition = .imageLeft
-            }
-            button.title = "iMonitor"
+            self.statusBarIcon = StatusBarIconView()
+            statusBarIcon.frame = NSRect(x: 0, y: 0, width: 68, height: NSStatusBar.system.thickness)
+            statusBarIcon.autoresizingMask = [.width, .height]
+
+            button.subviews.forEach { $0.removeFromSuperview() }
+            button.addSubview(statusBarIcon)
         }
 
         self.network.startListenNetwork()
@@ -64,6 +66,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatusBar() {
+        guard let icon = statusBarIcon else { return }
+
+        icon.cpuUsage = systemDataModel.cpuUsage
+        icon.memoryUsage = systemDataModel.memoryTotal > 0
+            ? Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) : 0
+        icon.gpuUsage = systemDataModel.gpuUsage
+        icon.totalInBytes = statusDataModel.totalInBytes
+        icon.totalOutBytes = statusDataModel.totalOutBytes
+
         let cpuPct = Int(round(systemDataModel.cpuUsage * 100))
         let memPct = systemDataModel.memoryTotal > 0
             ? Int(round(Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) * 100)) : 0

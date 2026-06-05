@@ -10,9 +10,11 @@ struct ContentView: View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 8) {
-                Image("Itraffic-logo-text")
-                    .resizable()
-                    .frame(width: 89.39, height: 20)
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.accentColor)
+                Text("iMonitor")
+                    .font(.system(size: 13, weight: .semibold))
                 Text("v\(appVersion)")
                     .foregroundColor(.secondary)
                     .font(.system(size: 11, weight: .regular))
