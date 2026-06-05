@@ -12,13 +12,13 @@ configs:
 settings:
   base:
     PRODUCT_NAME: iMonitor
-    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
 
 targets:
   iMonitor:
     type: application
     platform: macOS
-    deploymentTarget: "11.0"
+    deploymentTarget: "13.0"
     sources:
       - path: iMonitor
         excludes:
@@ -28,6 +28,7 @@ targets:
           - Assets.xcassets
           - "Preview Content"
           - Base.lproj
+          - iMonitorApp.swift
       - path: iMonitor/Assets.xcassets
         buildPhase: resources
       - path: iMonitor/Preview Content/Preview Assets.xcassets

@@ -7,10 +7,11 @@ class Network {
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
     @ObservedObject var globalModel = SharedStore.globalModel
 
-    private let interval = 2
+    private var networkInterval: Int { AppConfig.networkInterval }
+    private var systemInterval: Int { AppConfig.systemInterval }
 
     private lazy var runner: NettopRunner = {
-        let r = NettopRunner(interval: interval)
+        let r = NettopRunner(interval: networkInterval)
         r.onFrame = { [weak self] lines in
             self?.handleFrame(lines)
         }
@@ -18,7 +19,7 @@ class Network {
     }()
 
     private lazy var systemMonitor: SystemMonitor = {
-        let m = SystemMonitor(interval: interval)
+        let m = SystemMonitor(interval: systemInterval)
         m.onUpdate = { [weak self] metrics, processes in
             self?.handleSystemUpdate(metrics: metrics, processes: processes)
         }
@@ -61,17 +62,21 @@ class Network {
         }
 
         // parser stores raw delta bytes; convert to bytes/sec for the status bar.
-        let inRate  = totalInBytes  / interval
-        let outRate = totalOutBytes / interval
+        let inRate  = totalInBytes  / networkInterval
+        let outRate = totalOutBytes / networkInterval
 
         DispatchQueue.main.async {
             self.statusDataModel.update(totalInBytes: inRate, totalOutBytes: outRate)
-            self.viewModel.updateData(newItems: mergedEntities)
+            // Only update list when panel is visible to save CPU
+            if self.globalModel.viewShowing {
+                self.viewModel.updateData(newItems: mergedEntities)
+            }
         }
     }
 
     private func handleSystemUpdate(metrics: SystemMetrics, processes: [ProcessResourceInfo]) {
         var map: [Int: ProcessResourceInfo] = [:]
+        map.reserveCapacity(processes.count)
         for p in processes {
             map[p.pid] = p
         }
@@ -87,13 +92,6 @@ class Network {
     func tryToMakeAppSleepDeep() {
         if !globalModel.viewShowing && sleepCounter >= MAX_COUNT {
             globalModel.isSleepDeep = true
-            if globalModel.controllerHaveBeenReleased == false {
-                print("into sleep deep, release controller")
-                DispatchQueue.main.async {
-                    AppDelegate.popover.contentViewController = nil
-                }
-                globalModel.controllerHaveBeenReleased = true
-            }
             return
         }
         if sleepCounter >= MAX_COUNT {
@@ -110,7 +108,6 @@ class Network {
         if item.count < 3 {
             return nil
         }
-        // Store raw delta bytes; rate is computed once at the aggregation point.
         let inBytes  = Int(item[1]) ?? 0
         let outBytes = Int(item[2]) ?? 0
 

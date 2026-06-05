@@ -22,7 +22,7 @@ cd "$SCRIPT_DIR"
 # ── Configuration ────────────────────────────────────────────────────────────
 APP_NAME="iMonitor"
 BUNDLE_ID="com.aresnasa.iMonitor"
-MIN_MACOS="11.0"
+MIN_MACOS="13.0"
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 BUILD_DIR="./build"
