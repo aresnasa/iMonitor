@@ -6,8 +6,6 @@ struct ContentView: View {
     @ObservedObject var statusData = SharedStore.statusDataModel
     @ObservedObject var themeModel = SharedStore.themeModel
     @State private var showSettings = false
-    @State private var currentPage = 0
-    private let pageSize = 10
     let appVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
 
     var body: some View {
@@ -72,7 +70,7 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                     .padding(.trailing, 4)
                 ForEach(SortField.allCases, id: \.self) { field in
-                    Button(action: { viewModel.sortField = field; currentPage = 0 }) {
+                    Button(action: { viewModel.sortField = field }) {
                         Text(field.displayName)
                             .font(.system(size: 10, weight: viewModel.sortField == field ? .semibold : .regular))
                             .foregroundColor(viewModel.sortField == field ? .accentColor : .secondary)
@@ -93,46 +91,15 @@ struct ContentView: View {
             Divider()
 
             // Process list
-            ScrollView {
+            ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 0) {
                     let maxTotal = viewModel.items
                         .map { $0.inBytes + $0.outBytes }
                         .max() ?? 0
-                    let totalPages = max(1, (viewModel.items.count + pageSize - 1) / pageSize)
-                    let pageStart = currentPage * pageSize
-                    let pageItems = Array(viewModel.items.dropFirst(pageStart).prefix(pageSize))
-                    ForEach(pageItems) { entity in
+                    ForEach(viewModel.items) { entity in
                         ProcessRow(processEntity: entity, maxTotal: maxTotal)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 3)
-                    }
-
-                    // Pagination
-                    if totalPages > 1 {
-                        HStack(spacing: 12) {
-                            Spacer()
-                            Button(action: { currentPage = max(0, currentPage - 1) }) {
-                                Image(systemName: "chevron.left")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundColor(currentPage > 0 ? .accentColor : Color.secondary.opacity(0.3))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(currentPage == 0)
-
-                            Text("\(currentPage + 1)/\(totalPages)")
-                                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                .foregroundColor(.secondary)
-
-                            Button(action: { currentPage = min(totalPages - 1, currentPage + 1) }) {
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundColor(currentPage < totalPages - 1 ? .accentColor : Color.secondary.opacity(0.3))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(currentPage >= totalPages - 1)
-                            Spacer()
-                        }
-                        .padding(.vertical, 4)
                     }
                 }
             }
