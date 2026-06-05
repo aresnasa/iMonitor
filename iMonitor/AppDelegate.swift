@@ -31,7 +31,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: 88)
 
         if let button = self.statusBarItem.button {
-            button.action = #selector(togglePanel(_:))
+            button.action = #selector(statusBarClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
             self.statusBarIcon = StatusBarIconView()
             statusBarIcon.frame = NSRect(x: 0, y: 0, width: 88, height: NSStatusBar.system.thickness)
@@ -100,6 +101,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if mb < 1000 { return String(format: "%.1fM", mb) }
         let gb = mb / 1024
         return String(format: "%.1fG", gb)
+    }
+
+    @objc func statusBarClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp {
+            showContextMenu(sender)
+        } else {
+            togglePanel(sender)
+        }
+    }
+
+    private func showContextMenu(_ button: NSStatusBarButton) {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Quit iMonitor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        button.menu = menu
+        button.performClick(nil)
+        button.menu = nil
     }
 
     @objc func togglePanel(_ sender: AnyObject?) {
