@@ -51,7 +51,8 @@ class Network {
             return entity
         }
 
-        // Merge per-process CPU/Mem data
+        // Merge per-process CPU/Mem data into nettop entities
+        let nettopPids = Set(entities.map { $0.pid })
         let mergedEntities = entities.map { entity -> ProcessEntity in
             var e = entity
             if let res = processResources[e.pid] {
@@ -61,6 +62,22 @@ class Network {
             return e
         }
 
+        // Add system-only processes (no network activity but with CPU/Mem usage)
+        let systemOnlyEntities: [ProcessEntity] = processResources.compactMap { pid, res -> ProcessEntity? in
+            guard !nettopPids.contains(pid) else { return nil }
+            guard res.cpuUsage >= 0.001 || res.memoryUsed >= 50_000_000 else { return nil }
+            return ProcessEntity(
+                pid: pid,
+                name: res.name,
+                inBytes: 0,
+                outBytes: 0,
+                cpuUsage: res.cpuUsage,
+                memoryUsed: res.memoryUsed
+            )
+        }
+
+        let allEntities = mergedEntities + systemOnlyEntities
+
         // parser stores raw delta bytes; convert to bytes/sec for the status bar.
         let inRate  = totalInBytes  / networkInterval
         let outRate = totalOutBytes / networkInterval
@@ -69,7 +86,7 @@ class Network {
             self.statusDataModel.update(totalInBytes: inRate, totalOutBytes: outRate)
             // Only update list when panel is visible to save CPU
             if self.globalModel.viewShowing {
-                self.viewModel.updateData(newItems: mergedEntities)
+                self.viewModel.updateData(newItems: allEntities)
             }
         }
     }

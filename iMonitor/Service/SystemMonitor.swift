@@ -200,6 +200,7 @@ final class SystemMonitor {
 
             results.append(ProcessResourceInfo(
                 pid: Int(pid),
+                name: getProcessName(pid: pid),
                 cpuUsage: cpuPercent,
                 memoryUsed: UInt64(taskInfo.pti_resident_size)
             ))
@@ -207,6 +208,16 @@ final class SystemMonitor {
 
         prevProcessCpu = currentCpu
         return results
+    }
+
+    private func getProcessName(pid: pid_t) -> String {
+        var pathBuffer = [CChar](repeating: 0, count: 4096)
+        let len = proc_pidpath(pid, &pathBuffer, UInt32(pathBuffer.count))
+        if len > 0 {
+            let path = String(cString: pathBuffer)
+            return URL(fileURLWithPath: path).lastPathComponent
+        }
+        return "pid.\(pid)"
     }
 }
 
@@ -219,6 +230,7 @@ struct SystemMetrics {
 
 struct ProcessResourceInfo {
     let pid: Int
+    let name: String           // executable basename
     let cpuUsage: Double       // 0.0 - N.0 (can exceed 1.0 for multi-thread)
     let memoryUsed: UInt64     // resident size in bytes
 }
