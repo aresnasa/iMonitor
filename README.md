@@ -12,7 +12,7 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 
 ## Requirements
 
-- macOS 11.0 (Big Sur) or later
+- macOS 13.0 (Ventura) or later
 
 ## Install
 

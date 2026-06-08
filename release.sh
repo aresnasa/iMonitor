@@ -84,7 +84,7 @@ cask "imonitor" do
     strategy :github_latest
   end
 
-  depends_on macos: :big_sur
+  depends_on macos: ">= :ventura"
 
   app "${APP_NAME}.app"
 
@@ -315,12 +315,13 @@ Or download the DMG below, open and drag **iMonitor.app** to **Applications**.
 ### Features
 - CPU / Memory / GPU utilization with animated bar charts
 - Per-process CPU% and Memory display
+- System process monitoring (CPU/Memory-active processes without network)
 - Network speed monitoring per process
 - Universal binary (Apple Silicon + Intel)
 - Dark mode support
 
 ### Requirements
-macOS 11.0+ (Big Sur or later)
+macOS 13.0+ (Ventura or later)
 
 ---
 
