@@ -18,7 +18,7 @@ struct MenuItem: View {
             .font(.system(size: 12, weight: .regular))
             .foregroundColor(.gray)
             .contentShape(Rectangle())
-            .animation(.none)
+            .animation(.none, value: text)
             .onTapGesture {
                 action?()
             }

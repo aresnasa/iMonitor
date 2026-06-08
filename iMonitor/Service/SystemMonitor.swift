@@ -143,7 +143,7 @@ final class SystemMonitor {
     private func sampleGPU() -> Double {
         var iter: io_iterator_t = 0
         let matching = IOServiceMatching("IOGPUDevice")
-        guard IOServiceGetMatchingServices(kIOMasterPortDefault, matching, &iter) == KERN_SUCCESS else { return 0 }
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iter) == KERN_SUCCESS else { return 0 }
         defer { IOObjectRelease(iter) }
 
         var maxUtilization: Double = 0
