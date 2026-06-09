@@ -21,6 +21,11 @@ final class SystemMonitor {
     }
 
     func start() {
+        // Cancel any existing timer before creating a new one
+        stop()
+
+        AppLogger.info("SystemMonitor starting (interval=\(interval)s)")
+
         // Take initial samples for baseline
         _ = sampleCPU()
         _ = sampleProcessCpu()

@@ -117,7 +117,7 @@ final class NettopRunner {
             try task.run()
             self.process = task
         } catch {
-            print("[NettopRunner] failed to spawn: \(error)")
+            AppLogger.error(error, context: "NettopRunner failed to spawn")
             if shouldRestart {
                 queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                     self?.spawn()
@@ -127,6 +127,11 @@ final class NettopRunner {
     }
 
     private func consume(_ data: Data) {
+        // Cap buffer growth to prevent unbounded memory if nettop stalls
+        guard lineBuffer.count < 1_048_576 else {
+            lineBuffer.removeAll(keepingCapacity: true)
+            return
+        }
         lineBuffer.append(data)
         while let newlineIndex = lineBuffer.firstIndex(of: 0x0A) {
             let lineData = lineBuffer[lineBuffer.startIndex..<newlineIndex]

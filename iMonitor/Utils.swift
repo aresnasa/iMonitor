@@ -43,8 +43,9 @@ struct AppInfo {
     var updateTime: Int
 }
 
-var APP_INFO_CACHE = [Int: AppInfo]()
-var CACHE_TTL = 3600
+private var APP_INFO_CACHE = [Int: AppInfo]()
+private let APP_INFO_CACHE_LOCK = NSLock()
+private let CACHE_TTL = 3600
 
 /// Resolve icon + display name for a PID:
 /// 1. Try `NSRunningApplication(pid)` directly (GUI apps).
@@ -56,9 +57,20 @@ var CACHE_TTL = 3600
 /// Cached per-PID for `CACHE_TTL` seconds.
 func getAppInfo(pid: Int, name: String) -> AppInfo? {
     let timestamp = Int(NSDate().timeIntervalSince1970)
-    if let cached = APP_INFO_CACHE[pid], (timestamp - cached.updateTime) < CACHE_TTL {
-        return cached
+
+    var cachedResult: AppInfo?
+    APP_INFO_CACHE_LOCK.withLock {
+        // Prune stale entries for dead PIDs (periodic, not every call)
+        if APP_INFO_CACHE.count > 200 {
+            let pidsToKeep = Set(activePids())
+            APP_INFO_CACHE = APP_INFO_CACHE.filter { pidsToKeep.contains($0.key) }
+        }
+
+        if let cached = APP_INFO_CACHE[pid], (timestamp - cached.updateTime) < CACHE_TTL {
+            cachedResult = cached
+        }
     }
+    if let result = cachedResult { return result }
 
     var resolvedApp = NSRunningApplication(processIdentifier: pid_t(pid))
     var walkedToAncestor = false
@@ -102,8 +114,22 @@ func getAppInfo(pid: Int, name: String) -> AppInfo? {
     }
 
     let info = AppInfo(icon: icon, name: displayName, updateTime: timestamp)
-    APP_INFO_CACHE[pid] = info
+    APP_INFO_CACHE_LOCK.withLock {
+        APP_INFO_CACHE[pid] = info
+    }
     return info
+}
+
+/// Get currently active PIDs for cache pruning
+private func activePids() -> [Int] {
+    var count = proc_listpids(UInt32(PROC_ALL_PIDS), 0, nil, 0)
+    guard count > 0 else { return [] }
+    let bufSize = Int(count) / MemoryLayout<pid_t>.size + 16
+    var pids = [pid_t](repeating: 0, count: bufSize)
+    count = proc_listpids(UInt32(PROC_ALL_PIDS), 0, &pids, Int32(bufSize * MemoryLayout<pid_t>.size))
+    guard count > 0 else { return [] }
+    let n = Int(count) / MemoryLayout<pid_t>.size
+    return (0..<n).map { Int(pids[$0]) }.filter { $0 > 0 }
 }
 
 /// Look up a process's parent PID via sysctl.
@@ -117,7 +143,3 @@ private func parentPid(of pid: Int) -> Int? {
     guard result == 0, size > 0 else { return nil }
     return Int(info.kp_eproc.e_ppid)
 }
-
-// Note: previous versions did manual `lockFocus`/`draw` rasterisation
-// to a fixed pixel size — that rendered at 1x on Retina displays.
-// All scaling is now done by SwiftUI via `.resizable().interpolation(.high)`.

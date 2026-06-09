@@ -21,10 +21,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var mouseExitWorkItem: DispatchWorkItem?
 
     static func quit() {
+        AppLogger.info("iMonitor quitting")
         NSApplication.shared.terminate(self)
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        AppLogger.installCrashHandlers()
+
         // Register as login item (auto-launch at startup)
         if SMAppService.mainApp.status != .enabled {
             try? SMAppService.mainApp.register()

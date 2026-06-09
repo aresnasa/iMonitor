@@ -7,8 +7,8 @@ class Network {
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
     @ObservedObject var globalModel = SharedStore.globalModel
 
-    private var networkInterval: Int { AppConfig.networkInterval }
-    private var systemInterval: Int { AppConfig.systemInterval }
+    private var networkInterval: Int { max(AppConfig.networkInterval, 1) }
+    private var systemInterval: Int { max(AppConfig.systemInterval, 1) }
 
     private lazy var runner: NettopRunner = {
         let r = NettopRunner(interval: networkInterval)
@@ -26,15 +26,23 @@ class Network {
         return m
     }()
 
-    // Buffer for per-process CPU/Mem data, merged on next nettop frame
-    private var processResources: [Int: ProcessResourceInfo] = [:]
+    // Buffer for per-process CPU/Mem data, merged on next nettop frame.
+    // Accessed from both main queue (write) and nettop-runner queue (read).
+    private let resourcesLock = NSLock()
+    private var _processResources: [Int: ProcessResourceInfo] = [:]
+    private var processResources: [Int: ProcessResourceInfo] {
+        get { resourcesLock.withLock { _processResources } }
+        set { resourcesLock.withLock { _processResources = newValue } }
+    }
 
     public func startListenNetwork() {
+        AppLogger.info("Starting network and system monitors")
         runner.start()
         systemMonitor.start()
     }
 
     public func stopListenNetwork() {
+        AppLogger.info("Stopping network and system monitors")
         runner.stop()
         systemMonitor.stop()
     }
@@ -51,11 +59,14 @@ class Network {
             return entity
         }
 
+        // Snapshot processResources under lock (read once, use consistently)
+        let resources = processResources
+
         // Merge per-process CPU/Mem data into nettop entities
         let nettopPids = Set(entities.map { $0.pid })
         let mergedEntities = entities.map { entity -> ProcessEntity in
             var e = entity
-            if let res = processResources[e.pid] {
+            if let res = resources[e.pid] {
                 e.cpuUsage = res.cpuUsage
                 e.memoryUsed = res.memoryUsed
             }
@@ -63,7 +74,7 @@ class Network {
         }
 
         // Add system-only processes (no network activity but with CPU/Mem usage)
-        let systemOnlyEntities: [ProcessEntity] = processResources.compactMap { pid, res -> ProcessEntity? in
+        let systemOnlyEntities: [ProcessEntity] = resources.compactMap { pid, res -> ProcessEntity? in
             guard !nettopPids.contains(pid) else { return nil }
             guard res.cpuUsage >= 0.001 || res.memoryUsed >= 50_000_000 else { return nil }
             return ProcessEntity(
@@ -79,8 +90,9 @@ class Network {
         let allEntities = mergedEntities + systemOnlyEntities
 
         // parser stores raw delta bytes; convert to bytes/sec for the status bar.
-        let inRate  = totalInBytes  / networkInterval
-        let outRate = totalOutBytes / networkInterval
+        let interval = max(networkInterval, 1)
+        let inRate  = totalInBytes  / interval
+        let outRate = totalOutBytes / interval
 
         DispatchQueue.main.async {
             self.statusDataModel.update(totalInBytes: inRate, totalOutBytes: outRate)
@@ -104,20 +116,23 @@ class Network {
         }
     }
 
+    private let sleepLock = NSLock()
     var sleepCounter = 0
     let MAX_COUNT = 30
     func tryToMakeAppSleepDeep() {
-        if !globalModel.viewShowing && sleepCounter >= MAX_COUNT {
-            globalModel.isSleepDeep = true
-            return
+        sleepLock.withLock {
+            if !globalModel.viewShowing && sleepCounter >= MAX_COUNT {
+                globalModel.isSleepDeep = true
+                return
+            }
+            if sleepCounter >= MAX_COUNT {
+                sleepCounter = 0
+            }
+            if !globalModel.viewShowing {
+                sleepCounter += 1
+            }
+            globalModel.isSleepDeep = false
         }
-        if sleepCounter >= MAX_COUNT {
-            sleepCounter = 0
-        }
-        if !globalModel.viewShowing {
-            sleepCounter += 1
-        }
-        globalModel.isSleepDeep = false
     }
 
     func parser(text: String) -> ProcessEntity? {
