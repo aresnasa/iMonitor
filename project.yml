@@ -54,7 +54,7 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
-        MARKETING_VERSION: 0.5.1
+        MARKETING_VERSION: 0.5.2
         PRODUCT_BUNDLE_IDENTIFIER: com.aresnasa.iMonitor
         SWIFT_VERSION: 5.0
 
