@@ -84,7 +84,7 @@ cask "imonitor" do
     strategy :github_latest
   end
 
-  depends_on macos: :ventura
+  depends_on macos: :big_sur
 
   app "${APP_NAME}.app"
 
@@ -321,7 +321,7 @@ Or download the DMG below, open and drag **iMonitor.app** to **Applications**.
 - Dark mode support
 
 ### Requirements
-macOS 13.0+ (Ventura or later)
+macOS 11.0+ (Big Sur or later)
 
 ---
 

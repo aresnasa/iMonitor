@@ -33,7 +33,7 @@ class StatusBarIconView: NSView {
 
             let color = clamped < ThemeModel.overloadedThreshold ? usedColor : overloadedColor
             context.setFillColor(color.cgColor)
-            let usedPath = CGPath(roundedRect: usedRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+            let usedPath = makeRoundedRectPath(usedRect)
             context.addPath(usedPath)
             context.fillPath()
 
@@ -42,7 +42,7 @@ class StatusBarIconView: NSView {
             if freeHeight > 0 {
                 let freeRect = NSRect(x: x, y: freeY, width: barWidth, height: freeHeight)
                 context.setFillColor(freeColor.cgColor)
-                let freePath = CGPath(roundedRect: freeRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+                let freePath = makeRoundedRectPath(freeRect)
                 context.addPath(freePath)
                 context.fillPath()
             }
@@ -51,7 +51,7 @@ class StatusBarIconView: NSView {
         let barsWidth = barWidth * 3 + barSpacing * 2
         let netX = barsWidth + 4
 
-        let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+        let font = makeMonospacedFont(size: 10)
         let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.labelColor]
 
         let upStr = "↑" + formatBytesShort(totalOutBytes)
@@ -63,6 +63,25 @@ class StatusBarIconView: NSView {
         let dnAttrStr = NSAttributedString(string: dnStr, attributes: attrs)
         let dnSize = dnAttrStr.size()
         dnAttrStr.draw(at: NSPoint(x: netX, y: h - dnSize.height))
+    }
+
+    /// CGPath(roundedRect:) is macOS 12+. Fall back to plain rect on older systems.
+    private func makeRoundedRectPath(_ rect: NSRect) -> CGPath {
+        if #available(macOS 12.0, *) {
+            return CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
+        } else {
+            return CGPath(rect: rect, transform: nil)
+        }
+    }
+
+    /// NSFont.monospacedSystemFont(ofSize:weight:) is macOS 12+.
+    /// Fall back to system font of medium weight on older macOS.
+    private func makeMonospacedFont(size: CGFloat) -> NSFont {
+        if #available(macOS 12.0, *) {
+            return NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
+        } else {
+            return NSFont.systemFont(ofSize: size, weight: .medium)
+        }
     }
 
     private func formatBytesShort(_ bytes: Int) -> String {

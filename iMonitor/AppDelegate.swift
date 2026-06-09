@@ -29,8 +29,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AppLogger.installCrashHandlers()
 
         // Register as login item (auto-launch at startup)
-        if SMAppService.mainApp.status != .enabled {
-            try? SMAppService.mainApp.register()
+        if #available(macOS 13.0, *) {
+            if SMAppService.mainApp.status != .enabled {
+                try? SMAppService.mainApp.register()
+            }
+        } else {
+            SMLoginItemSetEnabled("com.aresnasa.iMonitor" as CFString, true)
         }
 
         self.contentView = ContentView()
@@ -142,7 +146,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        NSApp.activate(ignoringOtherApps: true)
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         globalModel.viewShowing = true
 
         if panel == nil {

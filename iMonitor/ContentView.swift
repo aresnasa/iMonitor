@@ -22,11 +22,18 @@ struct ContentView: View {
                     .font(.system(size: 11, weight: .regular))
                 Spacer()
                 Button(action: { showSettings.toggle() }) {
-                    Image(systemName: "gearshape")
+                    Image(systemName: settingsIconName)
                         .font(.system(size: 12))
                         .foregroundColor(showSettings ? .accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
+                Button(action: openLogFolder) {
+                    Image(systemName: "folder.badge.document")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Open log folder")
                 MenuItem(id: "menu.github", text: "Github", action: {
                     NSWorkspace.shared.open(URL(string: "https://github.com/aresnasa/iMonitor")!)
                 })
@@ -107,6 +114,19 @@ struct ContentView: View {
         }
         .frame(width: 420)
         .background(Color("ContentBGColor"))
+    }
+
+    private var settingsIconName: String {
+        if #available(macOS 12.0, *) { return "gearshape" }
+        else { return "gear" }
+    }
+
+    private func openLogFolder() {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/iMonitor")
+        // Ensure directory exists
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: dir.path)
     }
 
     private var memUsage: Double {
