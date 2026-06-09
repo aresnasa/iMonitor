@@ -68,7 +68,7 @@ struct StatusBarView: View {
                     RoundedRectangle(cornerRadius: 1.5)
                         .fill(usage < ThemeModel.overloadedThreshold ? themeModel.colors.used.color : themeModel.colors.overloaded.color)
                         .frame(height: geo.size.height * CGFloat(usage))
-                        .animation(.easeInOut(duration: 0.6), value: usage)
+                        .animation(.easeInOut(duration: 0.6), value: usage) // .animation(_:value:) macOS 12+
                 }
             }
             .frame(width: barWidth, height: barHeight)

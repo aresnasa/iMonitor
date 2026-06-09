@@ -7,6 +7,12 @@ final class SystemMonitor {
 
     private let interval: Int
     private let queue = DispatchQueue(label: "system-monitor", qos: .utility)
+
+    /// Compatibility helper: kIOMainPortDefault (12+) / kIOMasterPortDefault (older)
+    private var ioMainPort: mach_port_t {
+        if #available(macOS 12.0, *) { return kIOMainPortDefault }
+        else { return kIOMasterPortDefault }
+    }
     private var timer: DispatchSourceTimer?
 
     // CPU delta tracking: flat array [user0,sys0,idle0,nice0, user1,sys1,idle1,nice1, ...]
@@ -148,7 +154,7 @@ final class SystemMonitor {
     private func sampleGPU() -> Double {
         var iter: io_iterator_t = 0
         let matching = IOServiceMatching("IOGPUDevice")
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iter) == KERN_SUCCESS else { return 0 }
+        guard IOServiceGetMatchingServices(ioMainPort, matching, &iter) == KERN_SUCCESS else { return 0 }
         defer { IOObjectRelease(iter) }
 
         var maxUtilization: Double = 0

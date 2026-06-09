@@ -12,13 +12,13 @@ configs:
 settings:
   base:
     PRODUCT_NAME: iMonitor
-    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 targets:
   iMonitor:
     type: application
     platform: macOS
-    deploymentTarget: "13.0"
+    deploymentTarget: "11.0"
     sources:
       - path: iMonitor
         excludes:
@@ -54,7 +54,7 @@ targets:
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
-        MARKETING_VERSION: 0.5.3
+        MARKETING_VERSION: 0.5.4
         PRODUCT_BUNDLE_IDENTIFIER: com.aresnasa.iMonitor
         SWIFT_VERSION: 5.0
 
