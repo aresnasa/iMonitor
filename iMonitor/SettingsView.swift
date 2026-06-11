@@ -46,8 +46,45 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
             }
+
+            Divider()
+
+            HStack {
+                Button(action: openLogFolder) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text.viewfinder")
+                            .font(.system(size: 10))
+                        Text("Open Log")
+                            .font(.system(size: 11))
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.accentColor)
+
+                Spacer()
+
+                Button(action: AppDelegate.quit) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "power")
+                            .font(.system(size: 10))
+                        Text("Quit")
+                            .font(.system(size: 11))
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.red.opacity(0.8))
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+    }
+
+    private func openLogFolder() {
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/iMonitor")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let logFile = dir.appendingPathComponent("imonitor.log")
+        let fileToSelect = FileManager.default.fileExists(atPath: logFile.path) ? logFile.path : nil
+        NSWorkspace.shared.selectFile(fileToSelect, inFileViewerRootedAtPath: dir.path)
     }
 }

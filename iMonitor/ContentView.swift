@@ -21,23 +21,20 @@ struct ContentView: View {
                     .foregroundColor(.secondary)
                     .font(.system(size: 11, weight: .regular))
                 Spacer()
+                Button(action: openLogFolder) {
+                    Image(systemName: "doc.text.viewfinder")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Open log")
                 Button(action: { showSettings.toggle() }) {
                     Image(systemName: settingsIconName)
                         .font(.system(size: 12))
                         .foregroundColor(showSettings ? .accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
-                Button(action: openLogFolder) {
-                    Image(systemName: "folder.badge.document")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Open log folder")
-                MenuItem(id: "menu.github", text: "Github", action: {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/aresnasa/iMonitor")!)
-                })
-                MenuItem(id: "menu.quit", text: "Quit", action: AppDelegate.quit)
+                .help("Settings")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -124,9 +121,12 @@ struct ContentView: View {
     private func openLogFolder() {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/iMonitor")
-        // Ensure directory exists
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: dir.path)
+
+        let logFile = dir.appendingPathComponent("imonitor.log")
+        // Select the log file if it exists, otherwise just open the folder
+        let fileToSelect = FileManager.default.fileExists(atPath: logFile.path) ? logFile.path : nil
+        NSWorkspace.shared.selectFile(fileToSelect, inFileViewerRootedAtPath: dir.path)
     }
 
     private var memUsage: Double {
