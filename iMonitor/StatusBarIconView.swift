@@ -16,6 +16,20 @@ class StatusBarIconView: NSView {
     var overloadedColor: NSColor = ColorThemePreset.default.colors.overloaded.nsColor { didSet { needsDisplay = true } }
     var freeColor: NSColor = ColorThemePreset.default.colors.free.nsColor { didSet { needsDisplay = true } }
 
+    // Cache font — avoids creating NSFont on every draw call
+    private let netFont: NSFont = {
+        if #available(macOS 12.0, *) {
+            return NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+        } else {
+            return NSFont.systemFont(ofSize: 10, weight: .medium)
+        }
+    }()
+
+    // Cache text attributes — avoids dictionary creation on every draw call
+    private lazy var textAttrs: [NSAttributedString.Key: Any] = {
+        [.font: netFont, .foregroundColor: NSColor.labelColor] as [NSAttributedString.Key: Any]
+    }()
+
     override var isFlipped: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -33,8 +47,7 @@ class StatusBarIconView: NSView {
 
             let color = clamped < ThemeModel.overloadedThreshold ? usedColor : overloadedColor
             context.setFillColor(color.cgColor)
-            let usedPath = makeRoundedRectPath(usedRect)
-            context.addPath(usedPath)
+            context.addPath(makeRoundedRectPath(usedRect))
             context.fillPath()
 
             let freeY = usedHeight
@@ -42,8 +55,7 @@ class StatusBarIconView: NSView {
             if freeHeight > 0 {
                 let freeRect = NSRect(x: x, y: freeY, width: barWidth, height: freeHeight)
                 context.setFillColor(freeColor.cgColor)
-                let freePath = makeRoundedRectPath(freeRect)
-                context.addPath(freePath)
+                context.addPath(makeRoundedRectPath(freeRect))
                 context.fillPath()
             }
         }
@@ -51,36 +63,22 @@ class StatusBarIconView: NSView {
         let barsWidth = barWidth * 3 + barSpacing * 2
         let netX = barsWidth + 4
 
-        let font = makeMonospacedFont(size: 10)
-        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.labelColor]
-
         let upStr = "↑" + formatBytesShort(totalOutBytes)
         let dnStr = "↓" + formatBytesShort(totalInBytes)
 
-        let upAttrStr = NSAttributedString(string: upStr, attributes: attrs)
+        let upAttrStr = NSAttributedString(string: upStr, attributes: textAttrs)
         upAttrStr.draw(at: NSPoint(x: netX, y: 0))
 
-        let dnAttrStr = NSAttributedString(string: dnStr, attributes: attrs)
+        let dnAttrStr = NSAttributedString(string: dnStr, attributes: textAttrs)
         let dnSize = dnAttrStr.size()
         dnAttrStr.draw(at: NSPoint(x: netX, y: h - dnSize.height))
     }
 
-    /// CGPath(roundedRect:) is macOS 12+. Fall back to plain rect on older systems.
     private func makeRoundedRectPath(_ rect: NSRect) -> CGPath {
         if #available(macOS 12.0, *) {
             return CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
         } else {
             return CGPath(rect: rect, transform: nil)
-        }
-    }
-
-    /// NSFont.monospacedSystemFont(ofSize:weight:) is macOS 12+.
-    /// Fall back to system font of medium weight on older macOS.
-    private func makeMonospacedFont(size: CGFloat) -> NSFont {
-        if #available(macOS 12.0, *) {
-            return NSFont.monospacedSystemFont(ofSize: size, weight: .medium)
-        } else {
-            return NSFont.systemFont(ofSize: size, weight: .medium)
         }
     }
 
