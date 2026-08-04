@@ -13,14 +13,16 @@ enum SharedStore {
     static let systemDataModel = SystemDataModel()
     static let globalModel = GlobalModel()
     static let themeModel = ThemeModel()
+    static let ipListViewModel = IPListViewModel()
+    static let network = Network()
 }
 
 extension View {
     func withGlobalEnvironmentObjects() -> some View {
         environmentObject(SharedStore.listViewModel)
-        .environmentObject(SharedStore.statusDataModel)
-        .environmentObject(SharedStore.systemDataModel)
-        .environmentObject(SharedStore.globalModel)
-        .environmentObject(SharedStore.themeModel)
+            .environmentObject(SharedStore.statusDataModel)
+            .environmentObject(SharedStore.systemDataModel)
+            .environmentObject(SharedStore.globalModel)
+            .environmentObject(SharedStore.themeModel)
     }
 }

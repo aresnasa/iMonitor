@@ -5,6 +5,8 @@ struct ContentView: View {
     @ObservedObject var systemData = SharedStore.systemDataModel
     @ObservedObject var statusData = SharedStore.statusDataModel
     @ObservedObject var themeModel = SharedStore.themeModel
+    @ObservedObject var globalModel = SharedStore.globalModel
+    @ObservedObject var ipViewModel = SharedStore.ipListViewModel
     @State private var showSettings = false
     let appVersion = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
 
@@ -48,9 +50,16 @@ struct ContentView: View {
 
             // System overview
             VStack(spacing: 6) {
-                UsageBarRow(label: "CPU", pct: systemData.cpuUsage, detail: formatPercent(systemData.cpuUsage), themeColors: themeModel.colors)
-                UsageBarRow(label: "MEM", pct: memUsage, detail: formatMem(systemData.memoryUsed, total: systemData.memoryTotal), themeColors: themeModel.colors)
-                UsageBarRow(label: "GPU", pct: systemData.gpuUsage, detail: formatPercent(systemData.gpuUsage), themeColors: themeModel.colors)
+                UsageBarRow(
+                    label: "CPU", pct: systemData.cpuUsage,
+                    detail: formatPercent(systemData.cpuUsage), themeColors: themeModel.colors)
+                UsageBarRow(
+                    label: "MEM", pct: memUsage,
+                    detail: formatMem(systemData.memoryUsed, total: systemData.memoryTotal),
+                    themeColors: themeModel.colors)
+                UsageBarRow(
+                    label: "GPU", pct: systemData.gpuUsage,
+                    detail: formatPercent(systemData.gpuUsage), themeColors: themeModel.colors)
 
                 HStack {
                     Spacer()
@@ -67,43 +76,111 @@ struct ContentView: View {
 
             Divider()
 
-            // Sort bar
+            // View mode + sort bar
             HStack(spacing: 0) {
-                Text("Sort")
+                Text("View")
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(.trailing, 4)
-                ForEach(SortField.allCases, id: \.self) { field in
-                    Button(action: { viewModel.sortField = field }) {
-                        Text(field.displayName)
-                            .font(.system(size: 10, weight: viewModel.sortField == field ? .semibold : .regular))
-                            .foregroundColor(viewModel.sortField == field ? .accentColor : .secondary)
+                ForEach(ViewMode.allCases, id: \.self) { mode in
+                    Button(action: { globalModel.viewMode = mode }) {
+                        Text(mode.displayName)
+                            .font(
+                                .system(
+                                    size: 10,
+                                    weight: globalModel.viewMode == mode ? .semibold : .regular)
+                            )
+                            .foregroundColor(
+                                globalModel.viewMode == mode ? .accentColor : .secondary
+                            )
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
                                 RoundedRectangle(cornerRadius: 3)
-                                    .fill(viewModel.sortField == field ? Color.accentColor.opacity(0.12) : Color.clear)
+                                    .fill(
+                                        globalModel.viewMode == mode
+                                            ? Color.accentColor.opacity(0.12) : Color.clear)
                             )
                     }
                     .buttonStyle(.plain)
                 }
+
+                if globalModel.viewMode == .process {
+                    Divider()
+                        .frame(height: 12)
+                        .padding(.horizontal, 6)
+                    Text("Sort")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.trailing, 2)
+                    ForEach(SortField.allCases, id: \.self) { field in
+                        Button(action: { viewModel.sortField = field }) {
+                            Text(field.displayName)
+                                .font(
+                                    .system(
+                                        size: 10,
+                                        weight: viewModel.sortField == field ? .semibold : .regular)
+                                )
+                                .foregroundColor(
+                                    viewModel.sortField == field ? .accentColor : .secondary
+                                )
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(
+                                            viewModel.sortField == field
+                                                ? Color.accentColor.opacity(0.12) : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 Spacer()
+
+                if globalModel.viewMode == .ip {
+                    Text("remote IPs · Δ per \(AppConfig.networkInterval)s")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 4)
 
             Divider()
 
-            // Process list
+            // Process list / IP list
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 0) {
-                    let maxTotal = viewModel.items
-                        .map { $0.inBytes + $0.outBytes }
-                        .max() ?? 0
-                    ForEach(viewModel.items) { entity in
-                        ProcessRow(processEntity: entity, maxTotal: maxTotal)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 3)
+                    if globalModel.viewMode == .process {
+                        let maxTotal =
+                            viewModel.items
+                            .map { $0.inBytes + $0.outBytes }
+                            .max() ?? 0
+                        ForEach(viewModel.items) { entity in
+                            ProcessRow(processEntity: entity, maxTotal: maxTotal)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 3)
+                        }
+                    } else {
+                        if ipViewModel.items.isEmpty {
+                            Text("No external IP traffic in this interval")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                        } else {
+                            let maxTotal =
+                                ipViewModel.items
+                                .map { $0.totalBytes }
+                                .max() ?? 0
+                            ForEach(ipViewModel.items) { entity in
+                                IPRow(entity: entity, maxTotal: maxTotal)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 3)
+                            }
+                        }
                     }
                 }
             }
@@ -114,8 +191,7 @@ struct ContentView: View {
     }
 
     private var settingsIconName: String {
-        if #available(macOS 12.0, *) { return "gearshape" }
-        else { return "gear" }
+        if #available(macOS 12.0, *) { return "gearshape" } else { return "gear" }
     }
 
     private func openLogFolder() {
@@ -207,7 +283,7 @@ struct ProcessRow: View {
 
     var body: some View {
         let appInfo = getAppInfo(pid: processEntity.pid, name: processEntity.name)
-        let inActive  = processEntity.inBytes  > 0
+        let inActive = processEntity.inBytes > 0
         let outActive = processEntity.outBytes > 0
         let anyActive = inActive || outActive
         let cpuActive = processEntity.cpuUsage > 0.001
@@ -271,6 +347,79 @@ struct ProcessRow: View {
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(outActive ? .primary : Color.secondary.opacity(0.35))
                     .frame(width: 36, alignment: .trailing)
+            }
+        }
+        .contentShape(Rectangle())
+        .background(
+            GeometryReader { proxy in
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.07))
+                        .frame(width: proxy.size.width * totalRatio)
+                    Spacer(minLength: 0)
+                }
+            }
+        )
+    }
+}
+
+struct IPRow: View {
+    let entity: IpEntity
+    let maxTotal: Int
+
+    var body: some View {
+        let inActive = entity.inBytes > 0
+        let outActive = entity.outBytes > 0
+        let anyActive = inActive || outActive
+        let total = entity.totalBytes
+        let totalRatio = maxTotal > 0 ? CGFloat(total) / CGFloat(maxTotal) : 0
+
+        HStack(spacing: 6) {
+            Image(systemName: "network")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .frame(width: 16, height: 16)
+
+            Text(entity.ip)
+                .font(
+                    .system(size: 11, weight: anyActive ? .semibold : .regular, design: .monospaced)
+                )
+                .foregroundColor(anyActive ? .primary : Color.primary.opacity(0.6))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 150, alignment: .leading)
+
+            // Connections
+            HStack(spacing: 1) {
+                Text("CONN")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(.secondary)
+                Text("\(entity.connections)")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 28, alignment: .trailing)
+            }
+
+            // Down
+            HStack(spacing: 1) {
+                Text("↓")
+                    .font(.system(size: 9))
+                    .foregroundColor(inActive ? .secondary : Color.secondary.opacity(0.35))
+                Text(formatBytesCompact(bytes: entity.inBytes))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(inActive ? .primary : Color.secondary.opacity(0.35))
+                    .frame(width: 40, alignment: .trailing)
+            }
+
+            // Up
+            HStack(spacing: 1) {
+                Text("↑")
+                    .font(.system(size: 9))
+                    .foregroundColor(outActive ? .secondary : Color.secondary.opacity(0.35))
+                Text(formatBytesCompact(bytes: entity.outBytes))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(outActive ? .primary : Color.secondary.opacity(0.35))
+                    .frame(width: 40, alignment: .trailing)
             }
         }
         .contentShape(Rectangle())

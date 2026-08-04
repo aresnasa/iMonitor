@@ -24,6 +24,9 @@ final class NettopRunner {
 
     private let interval: Int
     private let debounceInterval: TimeInterval
+    /// Nettop arguments (without the leading `/usr/bin/script -q /dev/null /usr/bin/nettop`).
+    /// Defaults to the per-process delta format used by the process view.
+    private let arguments: [String]
     private let queue = DispatchQueue(label: "nettop-runner", qos: .utility)
 
     private var process: Process?
@@ -37,8 +40,18 @@ final class NettopRunner {
     private var droppedFirstFrame = false
     private var shouldRestart = false
 
-    init(interval: Int, debounceInterval: TimeInterval = 0.1) {
+    init(interval: Int, arguments: [String]? = nil, debounceInterval: TimeInterval = 0.1) {
         self.interval = interval
+        self.arguments =
+            arguments ?? [
+                "-P",  // per-process
+                "-d",  // delta mode
+                "-L", "0",  // no log limit
+                "-J", "bytes_in,bytes_out",
+                "-t", "external",  // external interfaces
+                "-s", "\(interval)",  // sample interval (seconds)
+                "-c",  // CSV / no clear screen
+            ]
         self.debounceInterval = debounceInterval
     }
 
@@ -67,17 +80,7 @@ final class NettopRunner {
     private func spawn() {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/script")
-        task.arguments = [
-            "-q", "/dev/null",
-            "/usr/bin/nettop",
-            "-P",                    // per-process
-            "-d",                    // delta mode
-            "-L", "0",               // no log limit
-            "-J", "bytes_in,bytes_out",
-            "-t", "external",        // external interfaces
-            "-s", "\(interval)",     // sample interval (seconds)
-            "-c"                     // CSV / no clear screen
-        ]
+        task.arguments = ["-q", "/dev/null", "/usr/bin/nettop"] + arguments
 
         let stdin = Pipe()
         let stdout = Pipe()

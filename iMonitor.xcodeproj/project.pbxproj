@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		05F763526B26B532C240B352 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */; };
+		095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767700A10FED351DFF6EF2A1 /* IpEntity.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
 		3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */; };
 		3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD785E69FC443A189BD9EB /* StatusDataModel.swift */; };
@@ -29,11 +30,13 @@
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
 		C96D2943FBC8611CA2BF75C6 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */; };
+		F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206723C2C26FCC4941161856 /* NettopIPAggregator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0330B7177E5F80F52A4E65CC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		05F45D903C41BA05D94BF1CD /* ThemeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModel.swift; sourceTree = "<group>"; };
+		206723C2C26FCC4941161856 /* NettopIPAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopIPAggregator.swift; sourceTree = "<group>"; };
 		24BD785E69FC443A189BD9EB /* StatusDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDataModel.swift; sourceTree = "<group>"; };
 		28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalModel.swift; sourceTree = "<group>"; };
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -44,6 +47,7 @@
 		5C1714B0FA7CF35930B27B5D /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
 		65B44EE509AF585A4BAD28AB /* NettopRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopRunner.swift; sourceTree = "<group>"; };
 		733E532228253D04BA91E966 /* MenuItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItem.swift; sourceTree = "<group>"; };
+		767700A10FED351DFF6EF2A1 /* IpEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IpEntity.swift; sourceTree = "<group>"; };
 		84EFC1D42659D5C8F8F609CA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
@@ -78,6 +82,7 @@
 			isa = PBXGroup;
 			children = (
 				28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */,
+				767700A10FED351DFF6EF2A1 /* IpEntity.swift */,
 				AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */,
 				24BD785E69FC443A189BD9EB /* StatusDataModel.swift */,
 				4F918A29C931619B1AFCE28C /* SystemDataModel.swift */,
@@ -89,6 +94,7 @@
 		598571AD480869CBEABB8E9C /* Service */ = {
 			isa = PBXGroup;
 			children = (
+				206723C2C26FCC4941161856 /* NettopIPAggregator.swift */,
 				65B44EE509AF585A4BAD28AB /* NettopRunner.swift */,
 				9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */,
 			);
@@ -209,8 +215,10 @@
 				3DA070CC76C2C79EA3E2FE93 /* AppLogger.swift in Sources */,
 				C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */,
 				BA546140676E413066A9B987 /* GlobalModel.swift in Sources */,
+				095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */,
 				6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */,
 				27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */,
+				F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */,
 				BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */,
 				45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,

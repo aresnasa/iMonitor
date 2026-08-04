@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SwiftUI
 
@@ -26,6 +27,24 @@ class Network {
         return m
     }()
 
+    // Per-remote-IP traffic tracker. Runs its own nettop (connection-level,
+    // no -P) but is started/stopped on demand — only while the IP view is
+    // visible — so we never run a second nettop process when unused.
+    private lazy var ipAggregator: NettopIPAggregator = {
+        let a = NettopIPAggregator(interval: networkInterval)
+        a.onFrame = { [weak self] entities in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.globalModel.viewShowing, self.globalModel.viewMode == .ip else { return }
+                SharedStore.ipListViewModel.updateData(newItems: entities)
+            }
+        }
+        return a
+    }()
+
+    private var cancellables = Set<AnyCancellable>()
+    private var ipTrackingEnabled = false
+
     // Buffer for per-process CPU/Mem data, merged on next nettop frame.
     // Accessed from both main queue (write) and nettop-runner queue (read).
     private let resourcesLock = NSLock()
@@ -39,12 +58,37 @@ class Network {
         AppLogger.info("Starting network and system monitors")
         runner.start()
         systemMonitor.start()
+
+        // Start/stop the per-IP nettop tracker reactively: only while the
+        // popover is open AND the IP view mode is selected.
+        SharedStore.globalModel.$viewMode
+            .combineLatest(SharedStore.globalModel.$viewShowing)
+            .sink { [weak self] mode, showing in
+                self?.updateIPTracking(mode: mode, showing: showing)
+            }
+            .store(in: &cancellables)
     }
 
     public func stopListenNetwork() {
         AppLogger.info("Stopping network and system monitors")
         runner.stop()
         systemMonitor.stop()
+        ipAggregator.stop()
+        cancellables.removeAll()
+    }
+
+    private func updateIPTracking(mode: ViewMode, showing: Bool) {
+        let enabled = (mode == .ip) && showing
+        guard enabled != ipTrackingEnabled else { return }
+        ipTrackingEnabled = enabled
+        if enabled {
+            AppLogger.info("Starting IP traffic tracker")
+            ipAggregator.start()
+        } else {
+            AppLogger.info("Stopping IP traffic tracker")
+            ipAggregator.stop()
+            SharedStore.ipListViewModel.clear()
+        }
     }
 
     private func handleFrame(_ lines: [String]) {
@@ -74,7 +118,8 @@ class Network {
         }
 
         // Add system-only processes (no network activity but with CPU/Mem usage)
-        let systemOnlyEntities: [ProcessEntity] = resources.compactMap { pid, res -> ProcessEntity? in
+        let systemOnlyEntities: [ProcessEntity] = resources.compactMap {
+            pid, res -> ProcessEntity? in
             guard !nettopPids.contains(pid) else { return nil }
             guard res.cpuUsage >= 0.001 || res.memoryUsed >= 50_000_000 else { return nil }
             return ProcessEntity(
@@ -91,7 +136,7 @@ class Network {
 
         // parser stores raw delta bytes; convert to bytes/sec for the status bar.
         let interval = max(networkInterval, 1)
-        let inRate  = totalInBytes  / interval
+        let inRate = totalInBytes / interval
         let outRate = totalOutBytes / interval
 
         DispatchQueue.main.async {
@@ -140,7 +185,7 @@ class Network {
         if item.count < 3 {
             return nil
         }
-        let inBytes  = Int(item[1]) ?? 0
+        let inBytes = Int(item[1]) ?? 0
         let outBytes = Int(item[2]) ?? 0
 
         let nameAndPid = item[0].split(separator: ".")

@@ -1,6 +1,6 @@
 import Cocoa
-import SwiftUI
 import ServiceManagement
+import SwiftUI
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -38,7 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.contentView = ContentView()
-        self.network = Network()
+        self.network = SharedStore.network
 
         // Width: bars(4*3+2*2=16) + gap(4) + net text(~48)
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: 68)
@@ -48,7 +48,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
             self.statusBarIcon = StatusBarIconView()
-            statusBarIcon.frame = NSRect(x: 0, y: 0, width: 68, height: NSStatusBar.system.thickness)
+            statusBarIcon.frame = NSRect(
+                x: 0, y: 0, width: 68, height: NSStatusBar.system.thickness)
             statusBarIcon.autoresizingMask = [.width, .height]
 
             button.subviews.forEach { $0.removeFromSuperview() }
@@ -58,7 +59,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.network.startListenNetwork()
         updateStatusBar()
 
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true) { [weak self] _ in
+        refreshTimer = Timer.scheduledTimer(
+            withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true
+        ) { [weak self] _ in
             self?.updateStatusBar()
         }
 
@@ -87,15 +90,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         icon.freeColor = themeColors.free.nsColor
 
         icon.cpuUsage = systemDataModel.cpuUsage
-        icon.memoryUsage = systemDataModel.memoryTotal > 0
+        icon.memoryUsage =
+            systemDataModel.memoryTotal > 0
             ? Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) : 0
         icon.gpuUsage = systemDataModel.gpuUsage
         icon.totalInBytes = statusDataModel.totalInBytes
         icon.totalOutBytes = statusDataModel.totalOutBytes
 
         let cpuPct = Int(round(systemDataModel.cpuUsage * 100))
-        let memPct = systemDataModel.memoryTotal > 0
-            ? Int(round(Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) * 100)) : 0
+        let memPct =
+            systemDataModel.memoryTotal > 0
+            ? Int(
+                round(
+                    Double(systemDataModel.memoryUsed) / Double(systemDataModel.memoryTotal) * 100))
+            : 0
         let gpuPct = Int(round(systemDataModel.gpuUsage * 100))
         let memUsed = formatBytes(Int(systemDataModel.memoryUsed))
         let memTotal = formatBytes(Int(systemDataModel.memoryTotal))
@@ -172,10 +180,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func startMouseMonitoring() {
         stopMouseMonitoring()
 
-        mouseGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]) { [weak self] _ in
+        mouseGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+        ]) { [weak self] _ in
             self?.handleMouseCheck()
         }
-        mouseLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]) { [weak self] event in
+        mouseLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: [
+            .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+        ]) { [weak self] event in
             self?.handleMouseCheck()
             return event
         }
@@ -205,7 +217,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Check if mouse is over the status bar button
         if let button = statusBarItem.button {
-            let buttonFrame = button.window?.convertToScreen(button.convert(button.bounds, to: nil)) ?? .zero
+            let buttonFrame =
+                button.window?.convertToScreen(button.convert(button.bounds, to: nil)) ?? .zero
             if buttonFrame.contains(mouseLoc) { return }
         }
 
@@ -223,7 +236,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         if !panel.frame.contains(loc) {
                             // Check status bar button too
                             if let button = self.statusBarItem.button {
-                                let btnFrame = button.window?.convertToScreen(button.convert(button.bounds, to: nil)) ?? .zero
+                                let btnFrame =
+                                    button.window?.convertToScreen(
+                                        button.convert(button.bounds, to: nil)) ?? .zero
                                 if btnFrame.contains(loc) { return }
                             }
                             self.closePanel()
