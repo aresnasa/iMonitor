@@ -97,3 +97,7 @@ iOSInjectionProject/
 
 # Build output
 build/
+*.dmg
+*/*.dmg
+dist/**/*.dmg
+diss/
