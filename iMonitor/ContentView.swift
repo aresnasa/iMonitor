@@ -30,13 +30,32 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Open log")
-                Button(action: { showSettings.toggle() }) {
+                // Gear menu: Settings + Check for Updates… + Quit.
+                // A SwiftUI Menu renders as a dropdown when the label is tapped,
+                // satisfying the "click gear in top-right to update" requirement
+                // without adding a separate button.
+                Menu {
+                    Button(action: { showSettings.toggle() }) {
+                        menuLabel(
+                            showSettings ? "Hide Settings" : "Settings",
+                            systemName: showSettings ? "gearshape.fill" : "gearshape")
+                    }
+                    Divider()
+                    Button(action: { AppDelegate.shared.performUpdate() }) {
+                        menuLabel("Check for Updates…", systemName: "arrow.clockwise")
+                    }
+                    Divider()
+                    Button(action: AppDelegate.quit) {
+                        menuLabel("Quit iMonitor", systemName: "power", color: .red)
+                    }
+                } label: {
                     Image(systemName: settingsIconName)
                         .font(.system(size: 12))
                         .foregroundColor(showSettings ? .accentColor : .secondary)
                 }
-                .buttonStyle(.plain)
-                .help("Settings")
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Settings · Updates · Quit")
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -192,6 +211,26 @@ struct ContentView: View {
 
     private var settingsIconName: String {
         if #available(macOS 12.0, *) { return "gearshape" } else { return "gear" }
+    }
+
+    /// Cross-version menu label. `Label(_:systemImage:)` needs macOS 13+;
+    /// on older systems we fall back to an HStack of Image + Text.
+    @ViewBuilder
+    private func menuLabel(_ title: String, systemName: String, color: Color? = nil) -> some View {
+        if #available(macOS 13.0, *) {
+            if let color = color {
+                Label(title, systemImage: systemName).foregroundColor(color)
+            } else {
+                Label(title, systemImage: systemName)
+            }
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: systemName)
+                    .foregroundColor(color)
+                Text(title)
+                    .foregroundColor(color)
+            }
+        }
     }
 
     private func openLogFolder() {

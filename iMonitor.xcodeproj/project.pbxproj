@@ -10,6 +10,7 @@
 		05F763526B26B532C240B352 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */; };
 		095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767700A10FED351DFF6EF2A1 /* IpEntity.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
+		2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC384FC1089FC41B02040979 /* UpdateManager.swift */; };
 		3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */; };
 		3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD785E69FC443A189BD9EB /* StatusDataModel.swift */; };
 		3DA070CC76C2C79EA3E2FE93 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EFC1D42659D5C8F8F609CA /* AppLogger.swift */; };
@@ -59,6 +60,7 @@
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E7B6A14EA4C47CCA67F0795B /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
+		FC384FC1089FC41B02040979 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -116,6 +118,7 @@
 				B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */,
 				D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */,
 				59F05FCAA582E102F54E637A /* Store.swift */,
+				FC384FC1089FC41B02040979 /* UpdateManager.swift */,
 				B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */,
 				C71C4639D158106B67BD9CDA /* Base.lproj */,
 				1E58BC510AC480A8EBD8338C /* Model */,
@@ -230,6 +233,7 @@
 				47317753BBB1D0935EE73079 /* SystemDataModel.swift in Sources */,
 				3F360029FD2DFB5A2F9B6A2B /* SystemMonitor.swift in Sources */,
 				AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */,
+				2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */,
 				05F763526B26B532C240B352 /* Utils.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -257,7 +261,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 0.5.7;
+				MARKETING_VERSION = 0.5.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
@@ -403,7 +407,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				MARKETING_VERSION = 0.5.7;
+				MARKETING_VERSION = 0.5.8;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.0;
