@@ -5,11 +5,19 @@ import SwiftUI
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate {
 
+    /// Shared instance. `@NSApplicationMain` wires `NSApp.delegate` to this
+    /// instance on launch; this convenience lets SwiftUI views reach the
+    /// update flow without walking `NSApp.delegate` casts.
+    static var shared: AppDelegate {
+        NSApp.delegate as! AppDelegate
+    }
+
     var statusBarItem: NSStatusItem!
     var statusBarIcon: StatusBarIconView!
     var panel: NSPanel!
     var contentView: ContentView!
     var network: Network!
+    let updateManager = UpdateManager()
     @ObservedObject var globalModel = SharedStore.globalModel
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
     @ObservedObject var statusDataModel = SharedStore.statusDataModel
@@ -130,6 +138,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePanel(_ sender: AnyObject?) {
+        // Right-click on the status bar item opens the gear menu instead of
+        // toggling the panel. `sendAction(on: [.leftMouseUp, .rightMouseUp])`
+        // is set on the button, so we inspect the current event type.
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showStatusBarMenu()
+            return
+        }
+
         updateStatusBar()
 
         if let panel = panel, panel.isVisible {
@@ -175,6 +191,162 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         stopMouseMonitoring()
         panel.orderOut(self)
         globalModel.viewShowing = false
+    }
+
+    /// Build and pop up the status-bar context menu (gear menu).
+    /// Shown on right-click of the status item. Mirrors the in-panel gear menu.
+    private func showStatusBarMenu() {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let updateItem = NSMenuItem(
+            title: updateManager.isUpdating ? "Updating…" : "Check for Updates…",
+            action: #selector(performUpdateFromMenu(_:)),
+            keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isEnabled = !updateManager.isUpdating
+        menu.addItem(updateItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit iMonitor",
+            action: #selector(quitFromMenu(_:)),
+            keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        if let button = statusBarItem.button {
+            // Pop up below the status item. `popUp(positioning:at:in:)` expects
+            // a view; the button itself is a valid coordinate space. We place
+            // the menu just below the button's bottom edge.
+            let loc = NSPoint(x: 0, y: button.bounds.maxY + 4)
+            menu.popUp(positioning: nil, at: loc, in: button)
+        }
+    }
+
+    @objc private func performUpdateFromMenu(_ sender: AnyObject?) {
+        performUpdate()
+    }
+
+    @objc private func quitFromMenu(_ sender: AnyObject?) {
+        AppDelegate.quit()
+    }
+
+    /// Run the Homebrew self-update flow and relaunch on success.
+    /// Shows an alert on failure with an option to open Terminal for manual update.
+    func performUpdate() {
+        guard !updateManager.isUpdating else { return }
+
+        // If the app isn't running from /Applications, warn early — the
+        // upgrade would install to /Applications but this running copy
+        // wouldn't be the one replaced, and the relaunch path would be wrong.
+        if Bundle.main.bundlePath != UpdateManager.installedAppPath {
+            presentAlert(
+                title: "Self-update unavailable",
+                message: UpdateManager.UpdateError.notInstalledViaBrew.errorDescription ?? "",
+                buttons: ["OK"]
+            )
+            return
+        }
+
+        updateManager.performUpdate(
+            onProgress: { [weak self] in
+                self?.presentUpdatingSheet()
+            },
+            onComplete: { [weak self] result in
+                self?.dismissUpdatingSheet()
+                switch result {
+                case .success:
+                    // Relaunch is already scheduled by UpdateManager.
+                    break
+                case .failure(let error):
+                    self?.presentUpdateFailure(error)
+                }
+            }
+        )
+    }
+
+    // MARK: - Update UI helpers
+
+    private var updatingAlert: NSAlert?
+
+    private func presentUpdatingSheet() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Updating iMonitor…"
+        alert.informativeText =
+            "Running `brew update && brew upgrade --cask imonitor`.\nThe app will relaunch automatically when done."
+        alert.addButton(withTitle: "Cancel")
+        // Non-blocking: run modal-ish via a detached panel so brew keeps running.
+        // We don't actually cancel the brew process — the button just dismisses
+        // the alert; the update will still complete in the background.
+        alert.buttons.first?.action = #selector(dismissUpdatingAlertFromButton(_:))
+        alert.buttons.first?.target = self
+        updatingAlert = alert
+        if let panel = panel, panel.isVisible {
+            alert.beginSheetModal(for: panel) { _ in }
+        } else {
+            // No panel visible — show as a standalone window so the user gets feedback.
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
+    }
+
+    @objc private func dismissUpdatingAlertFromButton(_ sender: AnyObject?) {
+        dismissUpdatingSheet()
+    }
+
+    private func dismissUpdatingSheet() {
+        guard let alert = updatingAlert else { return }
+        updatingAlert = nil
+        if let panel = panel, panel.isVisible, panel.sheetParent != nil,
+            panel.attachedSheet === alert.window
+        {
+            panel.endSheet(alert.window)
+        } else {
+            NSApp.abortModal()
+            alert.window.orderOut(nil)
+        }
+    }
+
+    private func presentUpdateFailure(_ error: UpdateManager.UpdateError) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Update failed"
+        alert.informativeText = error.errorDescription ?? "Unknown error."
+        alert.addButton(withTitle: "Open in Terminal")
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            openTerminalForManualUpdate()
+        }
+    }
+
+    /// Open Terminal with a pre-typed update command so the user can run it manually.
+    private func openTerminalForManualUpdate() {
+        let script = "brew update && brew upgrade --cask imonitor"
+        let appleScript = """
+            tell application \"Terminal\"
+                activate
+                do script \"\(script)\"
+            end tell
+            """
+        if let script = NSAppleScript(source: appleScript) {
+            var error: NSDictionary?
+            script.executeAndReturnError(&error)
+        }
+    }
+
+    private func presentAlert(title: String, message: String, buttons: [String]) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        buttons.forEach { alert.addButton(withTitle: $0) }
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     private func startMouseMonitoring() {
