@@ -3,9 +3,17 @@
 //  iMonitor
 //
 //  Aggregates nettop's connection-level output into per-remote-IP traffic
-//  deltas. Runs nettop WITHOUT -P so each connection row
-//  (e.g. `tcp4 10.0.0.1:port<->17.57.145.151:5223`) is emitted; we group
-//  bytes_in / bytes_out by the remote peer IP and rank IPs by traffic.
+//  deltas, preserving the owning process so the UI can show
+//  "App → remote IP". Runs nettop WITHOUT -P so each connection row
+//  (e.g. `tcp4 10.0.0.1:port<->17.57.145.151:5223`) is emitted; nettop
+//  groups connection rows under their parent process aggregate row
+//  (`processname.pid`), so we track the current process as we scan.
+//
+//  IPv4 and IPv6 are both handled. nettop uses different port separators
+//  depending on address family:
+//    - IPv4 (tcp4/udp4): `addr:port`  (e.g. `17.57.145.151:5223`)
+//    - IPv6 (tcp6/udp6): `addr.port`  (e.g. `2406:d440:..:c456.443`)
+//  The protocol family prefix on each connection row tells us which to use.
 //
 //  Reuses NettopRunner (which handles the /usr/bin/script PTY wrapper, the
 //  keep-stdin-open mitigation, frame debouncing, and first-cumulative-frame
@@ -49,8 +57,13 @@ final class NettopIPAggregator {
     // MARK: - Parsing
 
     private func handleFrame(_ lines: [String]) {
-        // ip -> (inBytes, outBytes, connectionCount)
-        var agg: [String: (inBytes: Int, outBytes: Int, conns: Int)] = [:]
+        // key: "pid|ip" -> aggregated traffic for that process+IP pair
+        var agg:
+            [String: (
+                processName: String, pid: Int, ip: String, inBytes: Int, outBytes: Int, conns: Int
+            )] = [:]
+        var currentProcess = ""
+        var currentPid = 0
 
         for line in lines {
             // Header rows only appear in the dropped first (cumulative) frame,
@@ -63,51 +76,93 @@ final class NettopIPAggregator {
             guard parts.count >= 3 else { continue }
 
             let identifier = String(parts[0])
-            // Connection rows contain "<->"; process aggregate rows do not.
-            guard let arrowRange = identifier.range(of: "<->") else { continue }
-
             let inBytes = Int(parts[1]) ?? 0
             let outBytes = Int(parts[2]) ?? 0
 
-            // Remote peer endpoint is everything after "<->".
-            let remote = String(identifier[arrowRange.upperBound...])
-            guard let ip = remoteIP(from: remote), !ip.isEmpty else { continue }
+            if let arrowRange = identifier.range(of: "<->") {
+                // --- Connection row ---
+                // Belongs to the most recently seen process aggregate row.
+                // If we haven't seen one yet (or it was unparseable), skip.
+                guard currentPid > 0 else { continue }
 
-            var entry = agg[ip] ?? (inBytes: 0, outBytes: 0, conns: 0)
-            entry.inBytes += inBytes
-            entry.outBytes += outBytes
-            entry.conns += 1
-            agg[ip] = entry
+                // Detect address family from the protocol prefix so we use
+                // the correct port separator (':' for IPv4, '.' for IPv6).
+                let isIPv6 = identifier.hasPrefix("tcp6") || identifier.hasPrefix("udp6")
+
+                // Remote peer endpoint is everything after "<->".
+                let remote = String(identifier[arrowRange.upperBound...])
+                guard let ip = remoteIP(from: remote, isIPv6: isIPv6), !ip.isEmpty else { continue }
+
+                let key = "\(currentPid)|\(ip)"
+                var entry = agg[key] ?? (currentProcess, currentPid, ip, 0, 0, 0)
+                entry.inBytes += inBytes
+                entry.outBytes += outBytes
+                entry.conns += 1
+                agg[key] = entry
+            } else {
+                // --- Process aggregate row ---
+                // Format: "processname.pid" (pid is always the part after
+                // the last dot). Process names may contain spaces and dots;
+                // only the trailing numeric segment is the pid.
+                if let lastDot = identifier.lastIndex(of: ".") {
+                    let name = String(identifier[..<lastDot])
+                    let pidStr = String(identifier[identifier.index(after: lastDot)...])
+                    if let pid = Int(pidStr), pid > 0, !name.isEmpty {
+                        currentProcess = name
+                        currentPid = pid
+                    }
+                }
+            }
         }
 
-        let entities = agg.map { ip, v in
-            IpEntity(ip: ip, inBytes: v.inBytes, outBytes: v.outBytes, connections: v.conns)
+        let entities = agg.map { _, v in
+            IpEntity(
+                processName: v.processName,
+                pid: v.pid,
+                ip: v.ip,
+                inBytes: v.inBytes,
+                outBytes: v.outBytes,
+                connections: v.conns
+            )
         }
         onFrame?(entities)
     }
 
-    /// Extract the remote IP from a nettop endpoint string such as
-    /// `17.57.145.151:5223`, `[fe80::1]:443`, `*:*`, or `*.*`.
-    /// Returns nil for wildcard / empty endpoints (listeners, broadcast).
-    private func remoteIP(from endpoint: String) -> String? {
+    /// Extract the remote IP from a nettop endpoint string.
+    ///
+    /// nettop uses different port separators by address family:
+    ///   - IPv4: `addr:port`  (e.g. `17.57.145.151:5223`, `*:*`)
+    ///   - IPv6: `addr.port`  (e.g. `2406:d440:..:c456.443`, `*.5353`, `*.*`)
+    ///
+    /// `isIPv6` must reflect the connection row's protocol prefix
+    /// (`tcp6`/`udp6` vs `tcp4`/`udp4`). Returns nil for wildcard /
+    /// empty endpoints (listeners, broadcast).
+    private func remoteIP(from endpoint: String, isIPv6: Bool) -> String? {
         let s = endpoint.trimmingCharacters(in: .whitespaces)
         if s.isEmpty { return nil }
 
-        // Bracketed IPv6: [addr]:port
-        if let close = s.firstIndex(of: "]") {
-            let start = s.index(after: s.startIndex)  // skip '['
-            let addr = String(s[start..<close])
-            return addr.contains("*") ? nil : addr
+        if isIPv6 {
+            // IPv6: strip the trailing .port (last dot).
+            // e.g. "2406:d440:10d:902:3bd4:c22c:ace8:c456.443" -> addr
+            //      "*.5353" -> "*" (filtered below), "*.*" -> "*" (filtered)
+            if let dot = s.lastIndex(of: ".") {
+                let addr = String(s[..<dot])
+                if addr.isEmpty || addr.contains("*") { return nil }
+                return addr
+            }
+            // No dot at all (unusual for IPv6).
+            return s.contains("*") ? nil : s
         }
 
         // IPv4 / wildcard: strip the trailing :port (last colon).
+        // e.g. "17.57.145.151:5223" -> addr, "*:*" -> "*" (filtered)
         if let colon = s.lastIndex(of: ":") {
             let addr = String(s[..<colon])
             if addr.isEmpty || addr.contains("*") { return nil }
             return addr
         }
 
-        // No colon at all (e.g. `*.*`).
+        // No colon at all (e.g. `*.*` without a protocol prefix).
         return s.contains("*") ? nil : s
     }
 }
