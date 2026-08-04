@@ -159,7 +159,7 @@ struct ContentView: View {
                 Spacer()
 
                 if globalModel.viewMode == .ip {
-                    Text("remote IPs · Δ per \(AppConfig.networkInterval)s")
+                    Text("app connections · Δ per \(AppConfig.networkInterval)s")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
@@ -184,7 +184,7 @@ struct ContentView: View {
                         }
                     } else {
                         if ipViewModel.items.isEmpty {
-                            Text("No external IP traffic in this interval")
+                            Text("No external connections in this interval")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity)
@@ -407,26 +407,35 @@ struct IPRow: View {
     let maxTotal: Int
 
     var body: some View {
+        let appInfo = getAppInfo(pid: entity.pid, name: entity.processName)
         let inActive = entity.inBytes > 0
         let outActive = entity.outBytes > 0
         let anyActive = inActive || outActive
         let total = entity.totalBytes
         let totalRatio = maxTotal > 0 ? CGFloat(total) / CGFloat(maxTotal) : 0
+        let displayName = appInfo?.name ?? entity.processName
 
         HStack(spacing: 6) {
-            Image(systemName: "network")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
+            Image(nsImage: appInfo?.icon ?? NSImage())
+                .resizable()
+                .interpolation(.high)
                 .frame(width: 16, height: 16)
 
-            Text(entity.ip)
-                .font(
-                    .system(size: 11, weight: anyActive ? .semibold : .regular, design: .monospaced)
-                )
-                .foregroundColor(anyActive ? .primary : Color.primary.opacity(0.6))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(width: 150, alignment: .leading)
+            // Process name (primary) + remote IP (secondary, indented below)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(displayName)
+                    .font(.system(size: 11, weight: anyActive ? .semibold : .regular))
+                    .foregroundColor(anyActive ? .primary : Color.primary.opacity(0.6))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Text(entity.ip)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(width: 150, alignment: .leading)
 
             // Connections
             HStack(spacing: 1) {
