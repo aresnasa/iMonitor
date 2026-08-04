@@ -33,13 +33,28 @@ Download the latest zip from [Releases](https://github.com/aresnasa/iMonitor/rel
 2. Generate the Xcode project: `xcodegen generate`
 3. Open `iMonitor.xcodeproj` and build, or run: `xcodebuild -project iMonitor.xcodeproj -scheme iMonitor -configuration Release build ONLY_ACTIVE_ARCH=NO`
 
+## Build Script
+
+```bash
+./build.sh                # Build Release .app
+./build.sh --dmg          # Build + package as DMG
+./build.sh --ci           # CI mode (build + DMG)
+./build.sh --clean        # Remove build artefacts
+```
+
 ## Release
 
 ```bash
-./release.sh [version]
+./build.sh --release 1.2.3                # Full release
+./build.sh --release 1.2.3 --dry-run      # Preview without publishing
+./build.sh --release 1.2.3 --skip-brew    # Skip Homebrew cask update
+./build.sh --release 1.2.3 --fix-sha      # Fix cask SHA from existing GitHub release
+./build.sh --release 1.2.3 --force        # Overwrite existing tag/release
 ```
 
-This script builds a universal binary, packages it, creates a GitHub release, and updates the Homebrew tap.
+The `--release` flag runs the full release cycle: build universal binary + DMG, create & push git tag, create GitHub Release with the DMG, and update the Homebrew tap (`aresnasa/homebrew-tap`) cask.
+
+**Prerequisites:** `gh` CLI authenticated (`gh auth login`) and git push access.
 
 ## Snapshot
 
