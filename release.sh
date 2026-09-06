@@ -67,70 +67,14 @@ verify_dmg_from_github() {
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Helper: build_cask_content
+#  Single source of truth: homebrew/imonitor.rb (with @VERSION@/@SHA256@ placeholders).
 # ══════════════════════════════════════════════════════════════════════════════
 build_cask_content() {
-    cat <<CASK_EOF
-cask "imonitor" do
-  version "${VERSION}"
-  sha256 "${SHA256_DMG}"
-
-  url "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/v#{version}/${DMG_NAME}"
-  name "${APP_NAME}"
-  desc "Menu bar system monitor – CPU, Memory, GPU, Network"
-  homepage "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}"
-
-  livecheck do
-    url :url
-    strategy :github_latest
-  end
-
-  depends_on macos: :big_sur
-
-  app "${APP_NAME}.app"
-
-  postflight do
-    # 1. Strip extended attributes (removes quarantine flag)
-    system_command "/usr/bin/xattr",
-                   args: ["-cr", "#{appdir}/${APP_NAME}.app"],
-                   sudo: false
-
-    # 2. Re-sign nested frameworks / dylibs with ad-hoc identity.
-    Dir.glob("#{appdir}/${APP_NAME}.app/Contents/**/*.{framework,dylib}").each do |nested|
-      system_command "/usr/bin/codesign",
-                     args: ["--force", "--sign", "-", "--timestamp=none", nested],
-                     sudo: false
-    end
-    Dir.glob("#{appdir}/${APP_NAME}.app/Contents/**/*.bundle").each do |nested|
-      next unless File.exist?(File.join(nested, "Info.plist"))
-
-      system_command "/usr/bin/codesign",
-                     args: ["--force", "--sign", "-", "--timestamp=none", nested],
-                     sudo: false
-    end
-
-    # 3. Re-sign the main app bundle with ad-hoc identity + entitlements.
-    #    The build-machine signature is invalidated when Homebrew copies the
-    #    .app; without re-signing macOS 14+ / Sequoia blocks the app.
-    ent = "#{appdir}/${APP_NAME}.app/Contents/Resources/${APP_NAME}-adhoc.entitlements"
-    codesign_args = ["--force", "--sign", "-", "--timestamp=none"]
-    codesign_args += ["--entitlements", ent] if File.exist?(ent)
-    codesign_args << "#{appdir}/${APP_NAME}.app"
-    system_command "/usr/bin/codesign",
-                   args: codesign_args,
-                   sudo: false
-
-    # 4. Touch the bundle so Launch Services picks up the new signature.
-    system_command "/usr/bin/touch",
-                   args: ["#{appdir}/${APP_NAME}.app"],
-                   sudo: false
-  end
-
-  zap trash: [
-    "~/Library/Caches/${BUNDLE_ID}",
-    "~/Library/Preferences/${BUNDLE_ID}.plist",
-  ]
-end
-CASK_EOF
+    local template="${PROJECT_ROOT}/homebrew/imonitor.rb"
+    [ -f "$template" ] || fail "Cask template not found: $template"
+    sed -e "s/@VERSION@/${VERSION}/g" \
+        -e "s/@SHA256@/${SHA256_DMG}/g" \
+        "$template"
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
