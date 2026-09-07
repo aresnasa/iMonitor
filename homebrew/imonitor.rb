@@ -18,7 +18,7 @@ cask "imonitor" do
 
   postflight_steps do
     run "/bin/zsh",
-        args: ["-c", <<~'SH']
+        args: ["-c", <<~SH]
           app="{{appdir}}/iMonitor.app"
 
           # 1. Strip extended attributes (removes quarantine flag)
