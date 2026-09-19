@@ -65,12 +65,19 @@ info()    { echo -e "  ${DIM}$1${RESET}"; }
 
 # Download DMG from a GitHub release and compute its SHA256.
 # Sets SHA256_DMG. Fails if the asset is missing.
+# Bounded: GitHub's CDN occasionally stalls a transfer mid-flight, and a bare
+# `curl` waits forever — abort slow/stalled transfers and retry instead.
 verify_dmg_from_github() {
     local tag="$1" tmpdir="$2"
     SHA256_DMG=""
     local url="https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${tag}/${DMG_NAME}"
     info "Downloading DMG from GitHub Release…"
-    if curl -fsSL --progress-bar -o "${tmpdir}/dmg.dmg" "$url" 2>&1; then
+    if curl -fsSL --progress-bar \
+        --connect-timeout 15 \
+        --max-time 300 \
+        --speed-limit 1024 --speed-time 20 \
+        --retry 4 --retry-delay 2 --retry-all-errors \
+        -o "${tmpdir}/dmg.dmg" "$url" 2>&1; then
         SHA256_DMG="$(shasum -a 256 "${tmpdir}/dmg.dmg" | awk '{print $1}')"
         success "SHA256: $SHA256_DMG"
     else
