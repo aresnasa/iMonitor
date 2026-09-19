@@ -12,13 +12,13 @@ configs:
 settings:
   base:
     PRODUCT_NAME: iMonitor
-    MACOSX_DEPLOYMENT_TARGET: "11.0"
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
 
 targets:
   iMonitor:
     type: application
     platform: macOS
-    deploymentTarget: "11.0"
+    deploymentTarget: "12.0"
     sources:
       - path: iMonitor
         excludes:
@@ -48,13 +48,13 @@ targets:
         ENABLE_HARDENED_RUNTIME: NO
         COMBINE_HIDPI_IMAGES: YES
         CURRENT_PROJECT_VERSION: 1
-        DEVELOPMENT_ASSET_PATHS: "\"iMonitor/Preview Content\""
+        DEVELOPMENT_ASSET_PATHS: '"iMonitor/Preview Content"'
 
         INFOPLIST_FILE: iMonitor/Info.plist
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"
           - "@executable_path/../Frameworks"
-        MARKETING_VERSION: 0.5.10
+        MARKETING_VERSION: 0.5.11
         PRODUCT_BUNDLE_IDENTIFIER: com.aresnasa.iMonitor
         SWIFT_VERSION: 5.0
 

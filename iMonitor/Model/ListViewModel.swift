@@ -14,6 +14,11 @@ class ListViewModel: ObservableObject {
     @Published var sortField: SortField = .network {
         didSet { resort() }
     }
+    /// Sort direction: `false` = descending (largest first, the default),
+    /// `true` = ascending. Applies to whichever `SortField` is selected.
+    @Published var sortAscending: Bool = false {
+        didSet { resort() }
+    }
 
     var globalModel = SharedStore.globalModel
     var gcCounter = 0
@@ -50,26 +55,36 @@ class ListViewModel: ObservableObject {
         items = sort(items: items)
     }
 
-    func sort(items: [ProcessEntity]) -> [ProcessEntity] {
-        switch sortField {
-        case .cpu:
-            return items.sorted { lhs, rhs in
-                if lhs.cpuUsage != rhs.cpuUsage { return lhs.cpuUsage > rhs.cpuUsage }
-                return lhs.name < rhs.name
-            }
-        case .memory:
-            return items.sorted { lhs, rhs in
-                if lhs.memoryUsed != rhs.memoryUsed { return lhs.memoryUsed > rhs.memoryUsed }
-                return lhs.name < rhs.name
-            }
-        case .network:
-            return items.sorted { lhs, rhs in
-                let lTotal = lhs.inBytes + lhs.outBytes
-                let rTotal = rhs.inBytes + rhs.outBytes
-                if lTotal != rTotal { return lTotal > rTotal }
-                return lhs.name < rhs.name
-            }
+    /// Tapping a sort field selects it, keeping the current direction;
+    /// tapping the already-selected field reverses the order.
+    func sortTapped(_ field: SortField) {
+        if sortField == field {
+            sortAscending.toggle()
+        } else {
+            sortField = field
         }
+    }
+
+    func sort(items: [ProcessEntity]) -> [ProcessEntity] {
+        items.sorted { lhs, rhs in
+            let order: ComparisonResult
+            switch sortField {
+            case .cpu:
+                order = Self.compare(lhs.cpuUsage, rhs.cpuUsage)
+            case .memory:
+                order = Self.compare(lhs.memoryUsed, rhs.memoryUsed)
+            case .network:
+                order = Self.compare(lhs.inBytes + lhs.outBytes, rhs.inBytes + rhs.outBytes)
+            }
+            // Ties always fall back to name A→Z, whatever the metric direction.
+            if order == .orderedSame { return lhs.name < rhs.name }
+            return sortAscending ? order == .orderedAscending : order == .orderedDescending
+        }
+    }
+
+    private static func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> ComparisonResult {
+        if lhs == rhs { return .orderedSame }
+        return lhs < rhs ? .orderedAscending : .orderedDescending
     }
 
     public func shouldClearItemsForReduceSomeMemory() -> Bool {

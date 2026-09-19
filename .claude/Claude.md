@@ -2,4 +2,4 @@
 2. 继续调整 build.sh，增加发布 imonitor 到 brew 和推送 github 的逻辑
 3. 继续检查 imonitor 详情中没有显示 app 链接的远端IP 地址的问题，这里需要支持 ipv4/ipv6 的显示，需要能明确的指导 app 是连接到了什么 IP
 4. 检查 imonitor 的 GPU 监控逻辑，这里没有触发正确的 mac GPU的监控
-5.
+5. ![](image.png)支持顺序sort 和逆序 sort
