@@ -8,11 +8,6 @@ final class SystemMonitor {
     private let interval: Int
     private let queue = DispatchQueue(label: "system-monitor", qos: .utility)
 
-    /// Compatibility helper: kIOMainPortDefault (12+) / kIOMasterPortDefault (older)
-    private var ioMainPort: mach_port_t {
-        if #available(macOS 12.0, *) { return kIOMainPortDefault }
-        else { return kIOMasterPortDefault }
-    }
     private var timer: DispatchSourceTimer?
 
     // CPU delta tracking: flat array [user0,sys0,idle0,nice0, user1,sys1,idle1,nice1, ...]
@@ -75,7 +70,8 @@ final class SystemMonitor {
         var cpuInfo: processor_info_array_t?
         var numCPUInfo: mach_msg_type_number_t = 0
 
-        let result = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &numCPU, &cpuInfo, &numCPUInfo)
+        let result = host_processor_info(
+            mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &numCPU, &cpuInfo, &numCPUInfo)
         guard result == KERN_SUCCESS, let info = cpuInfo else { return 0 }
         defer {
             let size = vm_size_t(UInt(numCPUInfo) * UInt(MemoryLayout<Int32>.size))
@@ -106,10 +102,10 @@ final class SystemMonitor {
 
             for i in 0..<cores {
                 let base = i * 4
-                dUser   += currentTicks[base]     - prevCpuTicks[base]
+                dUser += currentTicks[base] - prevCpuTicks[base]
                 dSystem += currentTicks[base + 1] - prevCpuTicks[base + 1]
-                dIdle   += currentTicks[base + 2] - prevCpuTicks[base + 2]
-                dNice   += currentTicks[base + 3] - prevCpuTicks[base + 3]
+                dIdle += currentTicks[base + 2] - prevCpuTicks[base + 2]
+                dNice += currentTicks[base + 3] - prevCpuTicks[base + 3]
             }
 
             let dActive = dUser + dSystem + dNice
@@ -131,7 +127,8 @@ final class SystemMonitor {
         sysctlbyname("hw.memsize", &totalPhys, &size, nil, 0)
 
         var vmStats = vm_statistics64()
-        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
         let result = withUnsafeMutablePointer(to: &vmStats) {
             $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
                 host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
@@ -152,25 +149,48 @@ final class SystemMonitor {
     // MARK: - GPU
 
     private func sampleGPU() -> Double {
+        // Apple Silicon exposes live GPU utilization on the IOAccelerator node
+        // (e.g. AGXAcceleratorG17X) under PerformanceStatistics ->
+        // "Device Utilization %". The IOGPUDevice class does not exist on
+        // Apple Silicon, so matching it alone reads 0 forever. Probe
+        // IOAccelerator first and keep IOGPUDevice as a fallback.
+        for serviceClass in ["IOAccelerator", "IOGPUDevice"] {
+            if let utilization = maxDeviceUtilization(serviceClass: serviceClass) {
+                return utilization
+            }
+        }
+        return 0
+    }
+
+    /// Max "Device Utilization %" across all nodes of the given IORegistry
+    /// class, as a 0.0-1.0 fraction. Returns nil when no node of that class
+    /// exposes the key, so the caller can try another class.
+    private func maxDeviceUtilization(serviceClass: String) -> Double? {
         var iter: io_iterator_t = 0
-        let matching = IOServiceMatching("IOGPUDevice")
-        guard IOServiceGetMatchingServices(ioMainPort, matching, &iter) == KERN_SUCCESS else { return 0 }
+        let matching = IOServiceMatching(serviceClass)
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iter) == KERN_SUCCESS
+        else { return nil }
         defer { IOObjectRelease(iter) }
 
+        var found = false
         var maxUtilization: Double = 0
         var instance = IOIteratorNext(iter)
         while instance != 0 {
             defer { IOObjectRelease(instance) }
 
-            if let stats = IORegistryEntryCreateCFProperty(instance, "PerformanceStatistics" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String: Any],
-               let utilization = stats["Device Utilization %"] as? Int {
+            if let stats = IORegistryEntryCreateCFProperty(
+                instance, "PerformanceStatistics" as CFString, kCFAllocatorDefault, 0)?
+                .takeRetainedValue() as? [String: Any],
+                let utilization = stats["Device Utilization %"] as? Int
+            {
+                found = true
                 let u = Double(utilization) / 100.0
                 if u > maxUtilization { maxUtilization = u }
             }
             instance = IOIteratorNext(iter)
         }
 
-        return maxUtilization
+        return found ? maxUtilization : nil
     }
 
     // MARK: - Per-Process CPU & Memory (delta-based CPU%)
@@ -178,7 +198,8 @@ final class SystemMonitor {
     private func sampleProcessCpu() -> [ProcessResourceInfo] {
         let bufSize = 4096
         var pids = [pid_t](repeating: 0, count: bufSize)
-        let result = proc_listpids(UInt32(PROC_ALL_PIDS), 0, &pids, Int32(bufSize * MemoryLayout<pid_t>.size))
+        let result = proc_listpids(
+            UInt32(PROC_ALL_PIDS), 0, &pids, Int32(bufSize * MemoryLayout<pid_t>.size))
         guard result > 0 else { return [] }
 
         let count = Int(result) / MemoryLayout<pid_t>.size
@@ -191,7 +212,8 @@ final class SystemMonitor {
             guard pid > 0 else { continue }
 
             var taskInfo = proc_taskinfo()
-            let infoSize = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size))
+            let infoSize = proc_pidinfo(
+                pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(MemoryLayout<proc_taskinfo>.size))
             guard infoSize > 0 else { continue }
 
             let totalNs = UInt64(taskInfo.pti_total_user) + UInt64(taskInfo.pti_total_system)
@@ -209,12 +231,13 @@ final class SystemMonitor {
                 }
             }
 
-            results.append(ProcessResourceInfo(
-                pid: Int(pid),
-                name: getProcessName(pid: pid),
-                cpuUsage: cpuPercent,
-                memoryUsed: UInt64(taskInfo.pti_resident_size)
-            ))
+            results.append(
+                ProcessResourceInfo(
+                    pid: Int(pid),
+                    name: getProcessName(pid: pid),
+                    cpuUsage: cpuPercent,
+                    memoryUsed: UInt64(taskInfo.pti_resident_size)
+                ))
         }
 
         prevProcessCpu = currentCpu
@@ -233,15 +256,15 @@ final class SystemMonitor {
 }
 
 struct SystemMetrics {
-    let cpuUsage: Double       // 0.0 - 1.0
-    let memoryUsed: UInt64     // bytes
-    let memoryTotal: UInt64    // bytes
-    let gpuUsage: Double       // 0.0 - 1.0
+    let cpuUsage: Double  // 0.0 - 1.0
+    let memoryUsed: UInt64  // bytes
+    let memoryTotal: UInt64  // bytes
+    let gpuUsage: Double  // 0.0 - 1.0
 }
 
 struct ProcessResourceInfo {
     let pid: Int
-    let name: String           // executable basename
-    let cpuUsage: Double       // 0.0 - N.0 (can exceed 1.0 for multi-thread)
-    let memoryUsed: UInt64     // resident size in bytes
+    let name: String  // executable basename
+    let cpuUsage: Double  // 0.0 - N.0 (can exceed 1.0 for multi-thread)
+    let memoryUsed: UInt64  // resident size in bytes
 }

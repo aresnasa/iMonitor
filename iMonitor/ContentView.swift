@@ -133,26 +133,29 @@ struct ContentView: View {
                         .foregroundColor(.secondary)
                         .padding(.trailing, 2)
                     ForEach(SortField.allCases, id: \.self) { field in
-                        Button(action: { viewModel.sortField = field }) {
-                            Text(field.displayName)
-                                .font(
-                                    .system(
-                                        size: 10,
-                                        weight: viewModel.sortField == field ? .semibold : .regular)
+                        let isActive = viewModel.sortField == field
+                        Button(action: { viewModel.sortTapped(field) }) {
+                            HStack(spacing: 2) {
+                                Text(field.displayName)
+                                // Indicator keeps its slot when inactive so the bar doesn't jump.
+                                Image(
+                                    systemName: viewModel.sortAscending
+                                        ? "chevron.up" : "chevron.down"
                                 )
-                                .foregroundColor(
-                                    viewModel.sortField == field ? .accentColor : .secondary
-                                )
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(
-                                            viewModel.sortField == field
-                                                ? Color.accentColor.opacity(0.12) : Color.clear)
-                                )
+                                .font(.system(size: 7, weight: .bold))
+                                .opacity(isActive ? 1 : 0)
+                            }
+                            .font(.system(size: 10, weight: isActive ? .semibold : .regular))
+                            .foregroundColor(isActive ? .accentColor : .secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(isActive ? Color.accentColor.opacity(0.12) : Color.clear)
+                            )
                         }
                         .buttonStyle(.plain)
+                        .help("Sort by \(field.displayName) · click again to reverse")
                     }
                 }
 
