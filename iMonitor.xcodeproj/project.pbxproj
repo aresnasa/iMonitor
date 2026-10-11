@@ -11,6 +11,7 @@
 		05F763526B26B532C240B352 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */; };
 		095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767700A10FED351DFF6EF2A1 /* IpEntity.swift */; };
 		0BB90F1AFF832A2DA6C8C971 /* AccessibilityMenuBarInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */; };
+		1632E3241F51BF95B3DD7BB2 /* PermissionOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4278522D2BDDD523CFAC62F9 /* PermissionOnboarding.swift */; };
 		17CFD01612513DE057781C5D /* ExpandCollapseAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
 		2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC384FC1089FC41B02040979 /* UpdateManager.swift */; };
@@ -67,6 +68,7 @@
 		34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarArrangementStore.swift; sourceTree = "<group>"; };
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessEntity.swift; sourceTree = "<group>"; };
+		4278522D2BDDD523CFAC62F9 /* PermissionOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionOnboarding.swift; sourceTree = "<group>"; };
 		451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyLengthEngine.swift; sourceTree = "<group>"; };
 		4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityBridge.swift; sourceTree = "<group>"; };
 		4F918A29C931619B1AFCE28C /* SystemDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemDataModel.swift; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 				0A9F6AA2A0C657C0E41DA183 /* iMonitor-Bridging-Header.h */,
 				733E532228253D04BA91E966 /* MenuItem.swift */,
 				E7B6A14EA4C47CCA67F0795B /* Network.swift */,
+				4278522D2BDDD523CFAC62F9 /* PermissionOnboarding.swift */,
 				3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */,
 				C6000C2555780235B42C5B3B /* SettingsView.swift */,
 				B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */,
@@ -312,6 +315,7 @@
 				FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */,
 				AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */,
 				C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */,
+				1632E3241F51BF95B3DD7BB2 /* PermissionOnboarding.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,
 				B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */,
 				3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */,

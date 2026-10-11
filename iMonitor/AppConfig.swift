@@ -46,6 +46,14 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "menuBarArrangement", default: [String: [String]]())
     static var menuBarArrangement: [String: [String]]
 
+    // MARK: - Permission onboarding
+
+    /// Whether the first-launch Accessibility walkthrough was dealt with -
+    /// granted, postponed, or closed. Keeps it from reopening on every launch;
+    /// the Settings row and the gear menu still cover a missing permission.
+    @UserDefaultsWrapper(key: "permissionOnboardingCompleted", default: false)
+    static var permissionOnboardingCompleted: Bool
+
     /// Posted after the settings pane changes any of the menu-bar options above.
     /// A notification rather than a setter, matching the mostly-static AppConfig.
     static let preferencesChangedNotification = Notification.Name("iMonitorPreferencesChanged")

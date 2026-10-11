@@ -21,6 +21,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // that hides menu-bar icons, and the notch-overflow dropdown.
     var hiddenBarController: HiddenBarController?
     var notchDropdownItem: NotchDropdownItem?
+    // First-launch Accessibility walkthrough. Non-nil only while its window is
+    // open; set up on demand and dropped when the user is done.
+    private var permissionOnboardingController: PermissionOnboardingController?
+    private var didSetupMenuBarFeatures = false
     let updateManager = UpdateManager()
     @ObservedObject var globalModel = SharedStore.globalModel
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
@@ -70,7 +74,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.network.startListenNetwork()
         updateStatusBar()
-        setupHiddenBarFeatures()
+        startMenuBarFeaturesIfPossible()
 
         refreshTimer = Timer.scheduledTimer(
             withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true
@@ -99,6 +103,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_ notification: Notification) {
         NotificationCenter.default.post(
             name: AccessibilityPermission.mayHaveChangedNotification, object: nil)
+        // The first launch holds the menu-bar features back until Accessibility
+        // is granted; the user comes back from System Settings with it granted,
+        // so start them now.
+        if !didSetupMenuBarFeatures, AccessibilityPermission.isGranted {
+            setupHiddenBarFeatures()
+        }
     }
 
     // MARK: - Hidden Bar features (ported from dwarvesf/hidden)
@@ -109,7 +119,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AccessibilityPermission.openSystemSettings()
     }
 
+    /// Start the menu-bar features right away when Accessibility is already
+    /// granted or the first-launch walkthrough has been dealt with before.
+    /// Otherwise the walkthrough runs first and the features start the moment
+    /// the grant lands, so granting never needs a relaunch.
+    private func startMenuBarFeaturesIfPossible() {
+        if AccessibilityPermission.isGranted || AppConfig.permissionOnboardingCompleted {
+            setupHiddenBarFeatures()
+            return
+        }
+        presentPermissionOnboarding()
+    }
+
+    /// The walkthrough that points at System Settings › Privacy & Security ›
+    /// Accessibility. Also offered from the gear menu, so a setup postponed
+    /// with "Not Now" can be resumed later.
+    func presentPermissionOnboarding() {
+        if permissionOnboardingController == nil {
+            let controller = PermissionOnboardingController()
+            controller.onGranted = { [weak self] in
+                self?.setupHiddenBarFeatures()
+            }
+            controller.onFinished = { [weak self] in
+                self?.permissionOnboardingController = nil
+                self?.setupHiddenBarFeatures()
+            }
+            permissionOnboardingController = controller
+        }
+        permissionOnboardingController?.present()
+    }
+
     private func setupHiddenBarFeatures() {
+        guard !didSetupMenuBarFeatures else { return }
+        didSetupMenuBarFeatures = true
         AppLogger.info(
             "HiddenBar: launch flags hideMenuBar=\(AppConfig.hideMenuBarEnabled) "
                 + "notchOverflow=\(AppConfig.notchOverflowEnabled) hasNotch=\(NotchDropdownItem.isSupported)"
@@ -283,6 +325,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Missing Accessibility: offer the walkthrough right where a user who
+        // noticed the menu-bar features doing nothing would look.
+        if !AccessibilityPermission.isGranted {
+            let setupItem = NSMenuItem(
+                title: "Accessibility Setup\u{2026}",
+                action: #selector(showPermissionSetupFromMenu(_:)),
+                keyEquivalent: "")
+            setupItem.target = self
+            menu.addItem(setupItem)
+
+            menu.addItem(NSMenuItem.separator())
+        }
+
         // Notch overflow: lists the icons squeezed behind the camera notch. Only
         // offered when the dropdown is enabled and a notched screen is attached.
         if AppConfig.notchOverflowEnabled, notchDropdownItem != nil {
@@ -318,6 +373,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showNotchItemsFromMenu(_ sender: AnyObject?) {
         notchDropdownItem?.openOverflow()
+    }
+
+    @objc private func showPermissionSetupFromMenu(_ sender: AnyObject?) {
+        presentPermissionOnboarding()
     }
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {
