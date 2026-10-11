@@ -281,6 +281,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		DA9279CA1AE71F979FFCBF75 /* Stabilize signing identity */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);

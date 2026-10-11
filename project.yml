@@ -90,6 +90,7 @@ targets:
       # future rebuilds alike. Without the certificate (CI, other Macs) the
       # phase leaves the linker's ad-hoc signature alone.
       - name: Stabilize signing identity
+        basedOnDependencyAnalysis: false
         script: |
           APP="$TARGET_BUILD_DIR/$WRAPPER_NAME"
           ID="iMonitor Local Signing"
