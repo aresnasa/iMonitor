@@ -159,12 +159,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         didSetupMenuBarFeatures = true
         AppLogger.info(
             "HiddenBar: launch flags hideMenuBar=\(AppConfig.hideMenuBarEnabled) "
-                + "notchOverflow=\(AppConfig.notchOverflowEnabled) hasNotch=\(NotchDropdownItem.isSupported)"
+                + "notchOverflow=\(AppConfig.notchOverflowEnabled) hasNotch=\(NotchOverflowController.hasNotch)"
         )
         if AppConfig.hideMenuBarEnabled {
             hiddenBarController = HiddenBarController()
         }
-        if AppConfig.notchOverflowEnabled, NotchDropdownItem.isSupported {
+        if AppConfig.notchOverflowEnabled {
             let dropdown = NotchDropdownItem()
             // The dropdown's rearrangement drags borrow the Hidden Bar engine:
             // icons are only ⌘-draggable while the bar is expanded.
@@ -347,11 +347,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(NSMenuItem.separator())
         }
 
-        // Notch overflow: lists the icons squeezed behind the camera notch. Only
-        // offered when the dropdown is enabled and a notched screen is attached.
+        // Menu-bar dropdown: lists the icons (notch-hidden ones included) and
+        // activates them. Offered whenever the dropdown feature is enabled -
+        // also as a backdoor when the chevron itself was removed via Control
+        // Center.
         if AppConfig.notchOverflowEnabled, notchDropdownItem != nil {
             let notchItem = NSMenuItem(
-                title: "Show Notch Items\u{2026}",
+                title: "Show Menu-bar Items\u{2026}",
                 action: #selector(showNotchItemsFromMenu(_:)),
                 keyEquivalent: "")
             notchItem.target = self

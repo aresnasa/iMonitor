@@ -2,30 +2,27 @@
 //  NotchDropdownItem.swift
 //  iMonitor
 //
-//  The little dropdown that surfaces the menu-bar icons hidden behind the Mac
-//  camera notch. Built on the NotchOverflowController ported from
+//  The little chevron dropdown that surfaces the menu-bar icons - the ones
+//  squeezed off past the Mac camera notch on notched Macs, and every icon on
+//  notch-less setups. Built on the NotchOverflowController ported from
 //  dwarvesf/hidden (MIT License, © Dwarves Foundation).
 //  https://github.com/dwarvesf/hidden
 //
 
 import Cocoa
 
-// A single small chevron status item that opens the Notch Overflow menu: the
-// icons squeezed off past the notch's left edge cannot be clicked directly, so
-// this lists them (and the currently visible ones) and activates a chosen item
-// through Accessibility.
+// A single small chevron status item that opens the overflow menu: icons
+// squeezed off past the notch's left edge (or otherwise not clickable) cannot
+// be reached directly, so this lists the menu-bar icons and activates a chosen
+// item through Accessibility.
 //
-// Only created when the machine actually has a notch and the user keeps the
-// feature on; on clamshell / no-notch setups it never appears.
+// Always created while the user keeps the feature on - on notched and
+// notch-less setups alike. On a notched display the menu splits into
+// hidden-behind-notch and visible sections; elsewhere it is one flat list.
 final class NotchDropdownItem: NSObject {
 
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let overflowController = NotchOverflowController()
-
-    // Whether the user's hardware can use this at all.
-    static var isSupported: Bool {
-        return NotchOverflowController.hasNotch
-    }
 
     override init() {
         super.init()
@@ -33,7 +30,7 @@ final class NotchDropdownItem: NSObject {
             // Down while the list is closed; the controller flips it up while
             // the list is on screen (wired below).
             button.image = HiddenBarAssets.notchDropdownImage
-            button.toolTip = "Menu-bar icons hidden behind the camera notch"
+            button.toolTip = "Menu-bar icons (click to list and activate)"
             button.target = self
             button.action = #selector(open)
         }

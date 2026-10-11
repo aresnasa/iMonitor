@@ -187,13 +187,13 @@ struct MenuBarSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            Toggle("Notch dropdown (icons behind the camera notch)", isOn: $notchEnabled)
+            Toggle("Menu-bar dropdown (chevron icon)", isOn: $notchEnabled)
                 .font(.system(size: 11))
 
             if notchEnabled {
                 HStack(spacing: 6) {
                     Text(
-                        "The order you set by \u{2318}-dragging the notch list is remembered, "
+                        "The order you set by \u{2318}-dragging the dropdown list is remembered, "
                             + "so it opens the way you arranged it."
                     )
                     .font(.system(size: 9))
@@ -217,10 +217,14 @@ struct MenuBarSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            if notchEnabled && !NotchDropdownItem.isSupported {
-                Text("No camera notch detected on any attached display.")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
+            if notchEnabled && !NotchOverflowController.hasNotch {
+                Text(
+                    "No notched display attached: the chevron lists every menu-bar icon "
+                        + "instead of just the ones hidden behind the notch."
+                )
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
         }
         .toggleStyle(.switch)

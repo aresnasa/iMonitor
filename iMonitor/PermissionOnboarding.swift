@@ -163,7 +163,7 @@ struct PermissionOnboardingView: View {
     }
 
     private var featureSummary: String {
-        if NotchDropdownItem.isSupported {
+        if NotchOverflowController.hasNotch {
             return "iMonitor hides the menu-bar icons you choose and keeps the ones "
                 + "behind the camera notch in reach. macOS needs Accessibility access "
                 + "before any app may read and move other apps' menu-bar items."

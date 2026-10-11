@@ -270,18 +270,28 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     ) -> NSMenu {
         let allExtras = extras ?? []
         let resolvedBoundary = boundary ?? Self.currentBoundary().overflowThresholdX
-        let classified = MenuBarExtraClassifier.classify(allExtras, boundary: resolvedBoundary)
+        // The notch split only means something on notched hardware; anywhere
+        // else every icon goes into one flat list.
+        let classified: (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) =
+            Self.hasNotch
+            ? MenuBarExtraClassifier.classify(allExtras, boundary: resolvedBoundary)
+            : (hidden: [], visible: allExtras)
         // The arrangement the user set in this popup wins for the rows they
         // have arranged; rows they never arranged keep following the live bar.
         let (hiddenExtras, visibleExtras) = MenuBarArrangementStore.arranged(
             hidden: classified.hidden, visible: classified.visible)
+        // Flat list for notch-less screens; rows keep their arrangement section
+        // flag, so an order set on a notched display survives here.
+        let flatExtras = hiddenExtras + visibleExtras
 
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
 
         // Title
-        menu.addItem(makeSectionHeader(title: "Notch Overflow", fontSize: 12))
+        menu.addItem(
+            makeSectionHeader(
+                title: Self.hasNotch ? "Notch Overflow" : "Menu-bar Items", fontSize: 12))
         menu.addItem(NSMenuItem.separator())
 
         if needsAccessibilityHelp {
@@ -311,9 +321,15 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
 
         // The reorderable rows, in display order; shared with the drag session
         // so a ⌘-drag can map a drop position back onto these items.
-        menuRows =
-            hiddenExtras.map { row(for: $0, hidden: true) }
-            + visibleExtras.map { row(for: $0, hidden: false) }
+        if Self.hasNotch {
+            menuRows =
+                hiddenExtras.map { row(for: $0, hidden: true) }
+                + visibleExtras.map { row(for: $0, hidden: false) }
+        } else {
+            menuRows = flatExtras.enumerated().map { (index, info) in
+                row(for: info, hidden: index < hiddenExtras.count)
+            }
+        }
         let rowWidth = Self.rowWidth(for: menuRows)
 
         // Discoverability: rows support a gesture that nothing else advertises.
@@ -321,28 +337,40 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             menu.addItem(makeHintItem())
         }
 
-        // Hidden section
-        if !hiddenExtras.isEmpty {
-            menu.addItem(makeSectionHeader(title: "Hidden Behind Notch (\(hiddenExtras.count))"))
-            menu.addItem(NSMenuItem.separator())
-
-            for (index, info) in hiddenExtras.enumerated() {
+        if Self.hasNotch {
+            // Hidden section
+            if !hiddenExtras.isEmpty {
                 menu.addItem(
-                    makeMenuItem(for: info, hidden: true, rowIndex: index, width: rowWidth))
+                    makeSectionHeader(title: "Hidden Behind Notch (\(hiddenExtras.count))"))
+                menu.addItem(NSMenuItem.separator())
+
+                for (index, info) in hiddenExtras.enumerated() {
+                    menu.addItem(
+                        makeMenuItem(for: info, hidden: true, rowIndex: index, width: rowWidth))
+                }
             }
-        }
 
-        // Visible section
-        if !visibleExtras.isEmpty {
-            if !hiddenExtras.isEmpty { menu.addItem(NSMenuItem.separator()) }
-            menu.addItem(makeSectionHeader(title: "Visible (\(visibleExtras.count))"))
-            menu.addItem(NSMenuItem.separator())
+            // Visible section
+            if !visibleExtras.isEmpty {
+                if !hiddenExtras.isEmpty { menu.addItem(NSMenuItem.separator()) }
+                menu.addItem(makeSectionHeader(title: "Visible (\(visibleExtras.count))"))
+                menu.addItem(NSMenuItem.separator())
 
-            for (index, info) in visibleExtras.enumerated() {
+                for (index, info) in visibleExtras.enumerated() {
+                    menu.addItem(
+                        makeMenuItem(
+                            for: info, hidden: false,
+                            rowIndex: hiddenExtras.count + index, width: rowWidth))
+                }
+            }
+        } else {
+            // One flat section: without a notch the notch sections would be
+            // meaningless; every icon is listed, click to activate.
+            for (index, info) in flatExtras.enumerated() {
                 menu.addItem(
                     makeMenuItem(
-                        for: info, hidden: false,
-                        rowIndex: hiddenExtras.count + index, width: rowWidth))
+                        for: info, hidden: index < hiddenExtras.count,
+                        rowIndex: index, width: rowWidth))
             }
         }
 

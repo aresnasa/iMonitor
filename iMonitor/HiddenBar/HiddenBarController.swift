@@ -367,10 +367,12 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        // Notch overflow entry: only on notch Macs, and only when enabled.
-        if NotchOverflowController.hasNotch && AppConfig.notchOverflowEnabled {
+        // Overflow entry: the chevron's menu as a menu item, so the icon list
+        // stays reachable even when the chevron itself is hidden or was removed
+        // via Control Center.
+        if AppConfig.notchOverflowEnabled {
             let overflowItem = NSMenuItem(
-                title: "Show Notch Items\u{2026}",
+                title: "Show Menu-bar Items\u{2026}",
                 action: #selector(showNotchOverflow),
                 keyEquivalent: "")
             overflowItem.target = self
