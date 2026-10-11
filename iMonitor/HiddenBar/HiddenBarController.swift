@@ -34,6 +34,18 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // Accessibility permission; the matching applicationDidBecomeActive retries it.
     private var isWaitingForAuthorization = false
 
+    // The user's intended hiding state. The engine's own state is derived from
+    // what the bar currently shows, so a foreign menu's relayout resetting the
+    // separator would make it read "expanded" and no one would put the hiding
+    // back; this records what the user actually asked for.
+    private var wantsCollapsed = false
+    // Whether some menu-bar menu (this app's or another app's) is tracking.
+    // While one is, auto-collapse defers; after one closes, a collapsed bar
+    // re-asserts its hiding (see scheduleCollapseReassertion).
+    private var isExternalMenuTracking = false
+    private var collapseReassertWorkItem: DispatchWorkItem?
+    private var menuBarClickMonitor: Any?
+
     // Set while a menu that this feature spawned is on screen, so the
     // auto-collapse timer can defer instead of closing the menu under the user.
     private(set) static var isMenuPresented = false
@@ -57,6 +69,25 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleApplicationDidBecomeActive),
             name: NSApplication.didBecomeActiveNotification, object: nil)
+        // Distributed broadcasts fired for EVERY menu-bar menu on the system,
+        // this app's included: opening or closing one makes macOS 26 relayout
+        // the bar, which can reset the inflated separator and pop the hidden
+        // icons back out exactly when the user clicks another app's icon.
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(handleExternalMenuTrackingBegan),
+            name: NSNotification.Name("NSMenuDidBeginTrackingNotification"), object: nil)
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(handleExternalMenuTrackingEnded),
+            name: NSNotification.Name("NSMenuDidEndTrackingNotification"), object: nil)
+        // Self-heal fallback in case the distributed notifications ever stop
+        // arriving: any click landing in the menu-bar band also schedules a
+        // re-assertion, so a reset hiding comes back on its own.
+        menuBarClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: .leftMouseDown
+        ) { [weak self] _ in
+            guard let self = self, self.isMouseInMenuBar else { return }
+            self.scheduleCollapseReassertion(after: 1.0)
+        }
 
         // Collapse shortly after launch, mirroring Hidden Bar: the hidden zone is
         // hidden until the user asks for it. Deferred so the bar has settled: the
@@ -82,8 +113,12 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
         hoverDwellTimer?.invalidate()
         if let monitor = hoverMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+        if let monitor = menuBarClickMonitor {
             NSEvent.removeMonitor(monitor)
         }
     }
@@ -241,6 +276,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     private var shouldDeferAutoCollapse: Bool {
         return isMouseInMenuBar || isOwnPanelVisible || Self.isMenuPresented
+            || isExternalMenuTracking
     }
 
     // MARK: - Actions
@@ -276,14 +312,17 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // clickable and ⌘-draggable from the one list. Full expansion remains
         // in the context menu for the one thing the list cannot do - ⌘-dragging
         // the separator on the real bar.
-        if isCollapsed, AppConfig.notchOverflowEnabled {
+        // wantsCollapsed, not the derived engine state: a foreign menu's
+        // relayout can reset the separator and make the engine misread the bar
+        // as expanded, which would turn this click into a collapse.
+        if wantsCollapsed, AppConfig.notchOverflowEnabled {
             // Open on the next tick: showOverflowMenu ends in performClick on
             // this same button (menu tracking), which must not re-enter the
             // click currently being dispatched.
             DispatchQueue.main.async { [weak self] in
                 self?.openOverflowMenu()
             }
-        } else if isCollapsed {
+        } else if wantsCollapsed {
             expandMenubar()
         } else {
             collapseIfPossible()
@@ -326,10 +365,29 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // hidden section yet, or a permission is pending), so show the bar as
     // expanded.
     private func didFailToCollapseMenuBar() {
+        wantsCollapsed = false
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
             button.toolTip = Self.expandedArrowTooltip
         }
+    }
+
+    private func didCollapseMenuBar() {
+        wantsCollapsed = true
+        if let button = toggleItem.button {
+            button.image = HiddenBarAssets.collapseImage
+            button.toolTip = Self.collapsedArrowTooltip
+        }
+    }
+
+    private func expandMenubar() {
+        wantsCollapsed = false
+        menuBarEngine.expand()
+        if let button = toggleItem.button {
+            button.image = HiddenBarAssets.expandImage
+            button.toolTip = Self.expandedArrowTooltip
+        }
+        autoCollapseIfNeeded()
     }
 
     // The app came back to the foreground (usually straight from System Settings
@@ -340,21 +398,38 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         collapseIfPossible()
     }
 
-    private func didCollapseMenuBar() {
-        if let button = toggleItem.button {
-            button.image = HiddenBarAssets.collapseImage
-            button.toolTip = Self.collapsedArrowTooltip
-        }
+    // MARK: - Foreign menu-bar menus
+
+    // Opening or closing any menu-bar menu makes macOS relayout the bar, and on
+    // macOS 26 that relayout can reset the inflated separator - the hidden
+    // icons pop back out exactly when the user clicks another app's icon. While
+    // such a menu tracks, auto-collapse also defers; when one closes, a
+    // collapsed bar puts its hiding back.
+    @objc private func handleExternalMenuTrackingBegan() {
+        isExternalMenuTracking = true
+        collapseReassertWorkItem?.cancel()
+        collapseReassertWorkItem = nil
+        scheduleCollapseReassertion(after: 0.3)
     }
 
-    private func expandMenubar() {
-        guard self.isCollapsed else { return }
-        menuBarEngine.expand()
-        if let button = toggleItem.button {
-            button.image = HiddenBarAssets.expandImage
-            button.toolTip = Self.expandedArrowTooltip
+    @objc private func handleExternalMenuTrackingEnded() {
+        isExternalMenuTracking = false
+        scheduleCollapseReassertion(after: 0.3)
+    }
+
+    /// Puts the hiding back if the user wanted the bar collapsed: a short delay
+    /// lets the relayout that reset the separator settle first. Idempotent when
+    /// nothing was reset.
+    private func scheduleCollapseReassertion(after delay: TimeInterval) {
+        guard wantsCollapsed else { return }
+        collapseReassertWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self = self, self.wantsCollapsed else { return }
+            self.menuBarEngine.invalidateLayout()
+            self.collapseIfPossible()
         }
-        autoCollapseIfNeeded()
+        collapseReassertWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Rearrangement support
@@ -486,8 +561,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     @objc private func handleScreenParametersChanged() {
         // Re-apply the recomputed length to the LIVE item when collapsed, or a
-        // display hot-plug leaves the separator at a stale length.
-        let wasCollapsed = isCollapsed
+        // display hot-plug leaves the separator at a stale length. wantsCollapsed,
+        // not the derived engine state: the very relayout being repaired can
+        // make the engine misread the bar as expanded.
+        let wasCollapsed = wantsCollapsed
         menuBarEngine.invalidateLayout()
         if wasCollapsed {
             collapseIfPossible()
