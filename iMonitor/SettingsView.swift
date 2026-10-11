@@ -117,6 +117,7 @@ struct MenuBarSettingsView: View {
     @AppStorage("hideAutoCollapseEnabled") private var autoCollapseEnabled = true
     @AppStorage("hideAutoCollapseSeconds") private var autoCollapseSeconds = 10.0
     @AppStorage("hideHoverToExpandEnabled") private var hoverToExpand = false
+    @AppStorage("hideHoverExpandSeconds") private var hoverExpandSeconds = 0.0
     @AppStorage("notchOverflowEnabled") private var notchEnabled = true
 
     // Only meaningful while Accessibility is missing; refreshed whenever the app
@@ -147,6 +148,30 @@ struct MenuBarSettingsView: View {
                     }
                     Toggle("Expand on hover", isOn: $hoverToExpand)
                         .font(.system(size: 11))
+
+                    // Resting the pointer on the arrow itself always expands
+                    // the bar; this is only how long it must rest there.
+                    HStack(spacing: 6) {
+                        Text("Arrow hover delay")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Stepper(
+                            value: $hoverExpandSeconds, in: 0...5, step: 0.5,
+                            label: {
+                                Text(
+                                    hoverExpandSeconds == 0
+                                        ? "Immediately"
+                                        : String(format: "%.1fs", hoverExpandSeconds)
+                                )
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            }
+                        )
+                        .help(
+                            "How long the pointer must rest on the arrow before "
+                                + "the hidden icons appear; 0 shows them immediately")
+                    }
 
                     // Both features below silently do nothing without this
                     // permission, so surface it right where they are configured.
@@ -230,7 +255,6 @@ struct MenuBarSettingsView: View {
         .toggleStyle(.switch)
         .controlSize(.small)
         .onChange(of: hideEnabled) { _ in needsRestart() }
-        .onChange(of: hoverToExpand) { _ in needsRestart() }
         .onChange(of: notchEnabled) { _ in needsRestart() }
         .onChange(of: autoCollapseEnabled) { _ in AppConfig.notifyPreferencesChanged() }
         .onChange(of: autoCollapseSeconds) { _ in AppConfig.notifyPreferencesChanged() }

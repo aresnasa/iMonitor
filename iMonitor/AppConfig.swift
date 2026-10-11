@@ -28,9 +28,16 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "hideAutoCollapseSeconds", default: 10.0)
     static var hideAutoCollapseSeconds: Double
 
-    /// Expand the hidden zone when the pointer dwells in the menu bar.
+    /// Expand the hidden zone when the pointer dwells anywhere in the menu bar
+    /// band (read live by the hover monitor, so toggling needs no restart).
     @UserDefaultsWrapper(key: "hideHoverToExpandEnabled", default: false)
     static var hideHoverToExpandEnabled: Bool
+
+    /// Pointer dwell over the arrow itself before it expands the hidden zone.
+    /// 0 expands immediately; raise it if a passing pointer keeps revealing
+    /// the bar.
+    @UserDefaultsWrapper(key: "hideHoverExpandSeconds", default: 0.0)
+    static var hideHoverExpandSeconds: Double
 
     // MARK: - Notch overflow
 

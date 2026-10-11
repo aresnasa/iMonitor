@@ -38,6 +38,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // auto-collapse timer can defer instead of closing the menu under the user.
     private(set) static var isMenuPresented = false
 
+    private static let expandedArrowTooltip = "Hide the menu-bar icons to the left of this arrow"
+    private static let collapsedArrowTooltip = "Show the hidden menu-bar icons"
+
     // MARK: - Init
 
     override init() {
@@ -90,6 +93,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     func tearDown() {
         timer?.invalidate()
         timer = nil
+        hoverDwellTimer?.invalidate()
+        hoverDwellTimer = nil
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
             hoverMonitor = nil
@@ -114,7 +119,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             button.target = self
             button.action = #selector(toggleButtonPressed(sender:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "Hide or show the menu-bar icons to the left of this arrow"
+            button.toolTip = Self.expandedArrowTooltip
         }
 
         toggleItem.autosaveName = "imonitor_hiddenbar_expandcollapse"
@@ -137,13 +142,21 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         _ = menuBarEngine
     }
 
-    // Opt-in: expand when the pointer dwells in the menu bar. No monitor is
-    // installed at all unless the pref is true at launch.
+    // Hover-to-expand, two zones:
+    // - the arrow itself: always active, expands after the configurable
+    //   `hideHoverExpandSeconds` dwell (0 = immediately). Delivered by a
+    //   tracking area on the button, because a global event monitor never
+    //   sees events over this app's own status-item windows.
+    // - the whole menu-bar band: opt-in via `hideHoverToExpandEnabled`, read
+    //   live so the settings toggle needs no restart; a fixed short dwell so
+    //   a pointer merely passing through doesn't expand.
     private func setupHoverToExpandIfEnabled() {
-        guard AppConfig.hideHoverToExpandEnabled else { return }
+        setupToggleButtonHoverTracking()
         hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
             guard let self = self else { return }
-            guard self.isCollapsed && self.isMouseInMenuBar else {
+            guard AppConfig.hideHoverToExpandEnabled,
+                self.isCollapsed && self.isMouseInMenuBar
+            else {
                 self.hoverDwellTimer?.invalidate()
                 self.hoverDwellTimer = nil
                 return
@@ -161,9 +174,47 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         }
     }
 
+    private func setupToggleButtonHoverTracking() {
+        guard let button = toggleItem.button else { return }
+        button.addTrackingArea(
+            NSTrackingArea(
+                rect: button.bounds,
+                options: [.mouseEnteredAndExited, .activeAlways],
+                owner: self))
+    }
+
+    // Entered the arrow's bounds: arm the configured dwell (or expand at once
+    // when it is 0). Suppressed while the click debounce is running, or the
+    // slide that follows a collapse would instantly re-expand under a pointer
+    // that is still resting on the arrow's new position.
+    @objc func mouseEntered(with event: NSEvent) {
+        guard isCollapsed, !isToggle else { return }
+        hoverDwellTimer?.invalidate()
+        let delay = AppConfig.hideHoverExpandSeconds
+        guard delay > 0 else {
+            expandMenubar()
+            return
+        }
+        hoverDwellTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) {
+            [weak self] _ in
+            guard let self = self else { return }
+            self.hoverDwellTimer = nil
+            if self.isCollapsed {
+                self.expandMenubar()
+            }
+        }
+    }
+
+    @objc func mouseExited(with event: NSEvent) {
+        hoverDwellTimer?.invalidate()
+        hoverDwellTimer = nil
+    }
+
     // MARK: - State
 
-    private var isCollapsed: Bool {
+    /// Read by the shared menu (AppDelegate.makeConfigurationMenu) to decide
+    /// whether the "Expand Menu Bar" entry is needed.
+    var isCollapsed: Bool {
         return menuBarEngine.state == .collapsed
     }
 
@@ -220,7 +271,23 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // Prevent rapid clicks from stacking hide/show animations.
         if isToggle { return }
         isToggle = true
-        self.isCollapsed ? self.expandMenubar() : self.collapseIfPossible()
+        // Collapsed, the arrow opens the hidden-items dropdown instead of
+        // expanding: the bar never reshuffles, and every hidden icon stays
+        // clickable and ⌘-draggable from the one list. Full expansion remains
+        // in the context menu for the one thing the list cannot do - ⌘-dragging
+        // the separator on the real bar.
+        if isCollapsed, AppConfig.notchOverflowEnabled {
+            // Open on the next tick: showOverflowMenu ends in performClick on
+            // this same button (menu tracking), which must not re-enter the
+            // click currently being dispatched.
+            DispatchQueue.main.async { [weak self] in
+                self?.openOverflowMenu()
+            }
+        } else if isCollapsed {
+            expandMenubar()
+        } else {
+            collapseIfPossible()
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.isToggle = false
         }
@@ -261,6 +328,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private func didFailToCollapseMenuBar() {
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
+            button.toolTip = Self.expandedArrowTooltip
         }
     }
 
@@ -275,6 +343,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private func didCollapseMenuBar() {
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.collapseImage
+            button.toolTip = Self.collapsedArrowTooltip
         }
     }
 
@@ -283,6 +352,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         menuBarEngine.expand()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
+            button.toolTip = Self.expandedArrowTooltip
         }
         autoCollapseIfNeeded()
     }
@@ -364,61 +434,41 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     }
 
     private func buildContextMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-
-        // Overflow entry: the chevron's menu as a menu item, so the icon list
-        // stays reachable even when the chevron itself is hidden or was removed
-        // via Control Center.
-        if AppConfig.notchOverflowEnabled {
-            let overflowItem = NSMenuItem(
-                title: "Show Menu-bar Items\u{2026}",
-                action: #selector(showNotchOverflow),
-                keyEquivalent: "")
-            overflowItem.target = self
-            menu.addItem(overflowItem)
-            menu.addItem(NSMenuItem.separator())
+        // The one shared menu (see AppDelegate.makeConfigurationMenu): the
+        // gear menu and this context menu are the same definition with the
+        // same handlers, so the entries cannot drift.
+        guard let delegate = NSApp.delegate as? AppDelegate else {
+            // Defensive: the delegate is always there in practice. Keep the
+            // item alive with quit rather than showing a dead menu.
+            let menu = NSMenu()
+            menu.autoenablesItems = false
+            menu.addItem(
+                NSMenuItem(
+                    title: "Quit iMonitor",
+                    action: #selector(NSApplication.terminate(_:)),
+                    keyEquivalent: "q"))
+            return menu
         }
-
-        let toggleAutoHideItem = NSMenuItem(
-            title: AppConfig.hideAutoCollapseEnabled
-                ? "Disable Auto Collapse" : "Enable Auto Collapse",
-            action: #selector(toggleAutoHide),
-            keyEquivalent: "")
-        toggleAutoHideItem.target = self
-        menu.addItem(toggleAutoHideItem)
-
-        let prefItem = NSMenuItem(
-            title: "Settings\u{2026}",
-            action: #selector(openSettings),
-            keyEquivalent: "")
-        prefItem.target = self
-        menu.addItem(prefItem)
-
-        // Same deep link the permission prompt uses, so a user who denied the
-        // permission can always get back to the exact pane.
-        let accessibilityItem = NSMenuItem(
-            title: "Accessibility Settings\u{2026}",
-            action: #selector(openAccessibilitySettings),
-            keyEquivalent: "")
-        accessibilityItem.target = self
-        menu.addItem(accessibilityItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        let quitItem = NSMenuItem(
-            title: "Quit iMonitor", action: #selector(quit), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        return menu
+        return delegate.makeConfigurationMenu()
     }
 
-    @objc private func showNotchOverflow() {
+    /// Every menu-bar icon in one dropdown: the fully hidden ones and the ones
+    /// squeezed behind the notch, clickable, and ⌘-draggable to rearrange.
+    /// The shared menu's "Show Menu-bar Items…" action lands here when the
+    /// standalone chevron is off (anchored to the arrow).
+    func openOverflowMenu() {
         notchOverflowController.showOverflowMenu(near: toggleItem)
     }
 
-    @objc private func toggleAutoHide() {
+    /// Full expansion for the shared menu's "Expand Menu Bar" action.
+    func expandMenuBar() {
+        expandMenubar()
+    }
+
+    /// Backing of the shared menu's Auto Collapse item: applies the flipped
+    /// value to the live timer right away (the settings pane goes through the
+    /// preferences-changed notification instead).
+    func toggleAutoHide() {
         AppConfig.hideAutoCollapseEnabled.toggle()
         if AppConfig.hideAutoCollapseEnabled {
             autoCollapseIfNeeded()
@@ -426,23 +476,6 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             timer?.invalidate()
             timer = nil
         }
-    }
-
-    @objc private func openSettings() {
-        guard let delegate = NSApp.delegate as? AppDelegate else { return }
-        delegate.showSettingsFromMenuBar()
-    }
-
-    @objc private func openAccessibilitySettings() {
-        if let delegate = NSApp.delegate as? AppDelegate {
-            delegate.openAccessibilitySettingsPane()
-        } else {
-            AccessibilityPermission.openSystemSettings()
-        }
-    }
-
-    @objc private func quit() {
-        AppDelegate.quit()
     }
 
     // MARK: - Notifications

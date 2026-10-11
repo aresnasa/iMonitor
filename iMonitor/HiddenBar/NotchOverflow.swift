@@ -289,9 +289,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         menu.delegate = self
 
         // Title
-        menu.addItem(
-            makeSectionHeader(
-                title: Self.hasNotch ? "Notch Overflow" : "Menu-bar Items", fontSize: 12))
+        menu.addItem(makeSectionHeader(title: "Menu-bar Items", fontSize: 12))
         menu.addItem(NSMenuItem.separator())
 
         if needsAccessibilityHelp {
@@ -340,8 +338,10 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         if Self.hasNotch {
             // Hidden section
             if !hiddenExtras.isEmpty {
-                menu.addItem(
-                    makeSectionHeader(title: "Hidden Behind Notch (\(hiddenExtras.count))"))
+                // The hidden bucket holds both kinds: icons iMonitor tucked
+                // away when the bar collapsed, and icons macOS squeezed off
+                // past the notch. One label covers both.
+                menu.addItem(makeSectionHeader(title: "Hidden (\(hiddenExtras.count))"))
                 menu.addItem(NSMenuItem.separator())
 
                 for (index, info) in hiddenExtras.enumerated() {

@@ -172,7 +172,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if AppConfig.hideMenuBarEnabled {
             hiddenBarController = HiddenBarController()
         }
-        if AppConfig.notchOverflowEnabled {
+        // With icon hiding on, the hidden-bar arrow itself opens the icon list,
+        // so one control both reaches and rearranges every hidden icon; the
+        // standalone chevron is only needed when hiding is off and no arrow
+        // exists to host the list.
+        if AppConfig.notchOverflowEnabled, hiddenBarController == nil {
             let dropdown = NotchDropdownItem()
             // The dropdown's rearrangement drags borrow the Hidden Bar engine:
             // icons are only ⌘-draggable while the bar is expanded.
@@ -202,7 +206,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if panel?.isVisible != true {
             togglePanel(nil)
         }
-        NotificationCenter.default.post(name: ContentView.toggleSettingsNotification, object: nil)
+        NotificationCenter.default.post(name: ContentView.showSettingsNotification, object: nil)
     }
 
     /// Prompt to relaunch after a setting that only applies at launch changed.
@@ -323,11 +327,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Build and pop up the status-bar context menu (gear menu).
-    /// Shown on right-click of the status item. Mirrors the in-panel gear menu.
+    /// Shown on right-click of the status item. The exact same menu the
+    /// Hidden Bar arrow/separator shows (see makeConfigurationMenu).
     private func showStatusBarMenu() {
+        let menu = makeConfigurationMenu()
+        if let button = statusBarItem.button {
+            // Pop up below the status item. `popUp(positioning:at:in:)` expects
+            // a view; the button itself is a valid coordinate space. We place
+            // the menu just below the button's bottom edge.
+            let loc = NSPoint(x: 0, y: button.bounds.maxY + 4)
+            menu.popUp(positioning: nil, at: loc, in: button)
+        }
+    }
+
+    // MARK: - Shared menu-bar menu
+
+    /// The one configuration menu, shared by every entry point: the main
+    /// icon's gear menu and the Hidden Bar arrow/separator context menu are
+    /// the same definition, and every action is handled here, so the entries
+    /// cannot drift and configuration stays reachable from whichever icon the
+    /// user can reach. (The gear menu used to lack Settings and the Auto
+    /// Collapse toggle - chevron-only before, so they vanished whenever the
+    /// chevron was hidden behind the notch or removed via Control Center -
+    /// and the Hidden Bar menu lacked the update check.)
+    func makeConfigurationMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
+        // Check for Updates…
         let updateItem = NSMenuItem(
             title: updateManager.isUpdating ? "Updating…" : "Check for Updates…",
             action: #selector(performUpdateFromMenu(_:)),
@@ -338,37 +365,85 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        var hasBarSection = false
+
+        // Menu-bar dropdown: lists the icons (hidden ones included) and
+        // activates them. Offered whenever the dropdown feature is enabled -
+        // hosted by the hidden-bar arrow when hiding is on, otherwise by the
+        // standalone chevron - and also as a backdoor when either item was
+        // removed via Control Center.
+        if AppConfig.notchOverflowEnabled,
+            notchDropdownItem != nil || hiddenBarController != nil
+        {
+            let overflowItem = NSMenuItem(
+                title: "Show Menu-bar Items\u{2026}",
+                action: #selector(showNotchItemsFromMenu(_:)),
+                keyEquivalent: "")
+            overflowItem.target = self
+            menu.addItem(overflowItem)
+            hasBarSection = true
+        }
+
+        // Collapsed bar: an arrow click opens the dropdown instead of
+        // expanding, so full expansion - only needed to ⌘-drag the separator
+        // on the real bar - lives in the menu.
+        if let controller = hiddenBarController, controller.isCollapsed {
+            let expandItem = NSMenuItem(
+                title: "Expand Menu Bar",
+                action: #selector(expandMenuBarFromMenu(_:)),
+                keyEquivalent: "")
+            expandItem.target = self
+            menu.addItem(expandItem)
+            hasBarSection = true
+        }
+
+        if hasBarSection {
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // Auto Collapse flips the Hidden Bar's own timer, so the item only
+        // exists while that feature is running.
+        if hiddenBarController != nil {
+            let autoCollapseItem = NSMenuItem(
+                title: AppConfig.hideAutoCollapseEnabled
+                    ? "Disable Auto Collapse" : "Enable Auto Collapse",
+                action: #selector(toggleAutoCollapseFromMenu(_:)),
+                keyEquivalent: "")
+            autoCollapseItem.target = self
+            menu.addItem(autoCollapseItem)
+        }
+
+        // Settings… opens the panel with the settings section showing.
+        let settingsItem = NSMenuItem(
+            title: "Settings\u{2026}",
+            action: #selector(openSettingsFromMenu(_:)),
+            keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         // Missing Accessibility: offer the walkthrough right where a user who
         // noticed the menu-bar features doing nothing would look. When a grant
         // existed before, it belongs to another build/copy, so the item turns
-        // into the targeted fix flow instead.
-        if !AccessibilityPermission.isGranted {
-            let setupItem = NSMenuItem(
+        // into the targeted fix flow instead. With the permission in place,
+        // a plain deep link to the pane is enough.
+        let accessibilityItem: NSMenuItem
+        if AccessibilityPermission.isGranted {
+            accessibilityItem = NSMenuItem(
+                title: "Accessibility Settings\u{2026}",
+                action: #selector(openAccessibilityPaneFromMenu(_:)),
+                keyEquivalent: "")
+        } else {
+            accessibilityItem = NSMenuItem(
                 title: AppConfig.accessibilityGrantedOnce
                     ? "Fix Accessibility Permission\u{2026}"
                     : "Accessibility Setup\u{2026}",
                 action: #selector(showPermissionSetupFromMenu(_:)),
                 keyEquivalent: "")
-            setupItem.target = self
-            menu.addItem(setupItem)
-
-            menu.addItem(NSMenuItem.separator())
         }
+        accessibilityItem.target = self
+        menu.addItem(accessibilityItem)
 
-        // Menu-bar dropdown: lists the icons (notch-hidden ones included) and
-        // activates them. Offered whenever the dropdown feature is enabled -
-        // also as a backdoor when the chevron itself was removed via Control
-        // Center.
-        if AppConfig.notchOverflowEnabled, notchDropdownItem != nil {
-            let notchItem = NSMenuItem(
-                title: "Show Menu-bar Items\u{2026}",
-                action: #selector(showNotchItemsFromMenu(_:)),
-                keyEquivalent: "")
-            notchItem.target = self
-            menu.addItem(notchItem)
-
-            menu.addItem(NSMenuItem.separator())
-        }
+        menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
             title: "Quit iMonitor",
@@ -377,13 +452,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        if let button = statusBarItem.button {
-            // Pop up below the status item. `popUp(positioning:at:in:)` expects
-            // a view; the button itself is a valid coordinate space. We place
-            // the menu just below the button's bottom edge.
-            let loc = NSPoint(x: 0, y: button.bounds.maxY + 4)
-            menu.popUp(positioning: nil, at: loc, in: button)
-        }
+        return menu
     }
 
     @objc private func performUpdateFromMenu(_ sender: AnyObject?) {
@@ -391,7 +460,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showNotchItemsFromMenu(_ sender: AnyObject?) {
-        notchDropdownItem?.openOverflow()
+        if let dropdown = notchDropdownItem {
+            dropdown.openOverflow()
+        } else {
+            hiddenBarController?.openOverflowMenu()
+        }
     }
 
     @objc private func showPermissionSetupFromMenu(_ sender: AnyObject?) {
@@ -406,6 +479,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {
         AppDelegate.quit()
+    }
+
+    @objc private func openSettingsFromMenu(_ sender: AnyObject?) {
+        showSettingsFromMenuBar()
+    }
+
+    @objc private func openAccessibilityPaneFromMenu(_ sender: AnyObject?) {
+        openAccessibilitySettingsPane()
+    }
+
+    @objc private func toggleAutoCollapseFromMenu(_ sender: AnyObject?) {
+        hiddenBarController?.toggleAutoHide()
+    }
+
+    @objc private func expandMenuBarFromMenu(_ sender: AnyObject?) {
+        hiddenBarController?.expandMenuBar()
     }
 
     /// Run the Homebrew self-update flow and relaunch on success.

@@ -211,16 +211,19 @@ struct ContentView: View {
         .frame(width: 420)
         .background(Color("ContentBGColor"))
         // The menu-bar menus (gear menu, hidden-bar menu) can ask for the
-        // settings section without knowing the panel's current state.
+        // settings section without knowing the panel's current state. Both
+        // mean "open it", so this is idempotent rather than a toggle: the
+        // section state survives the panel being closed, and a blind toggle
+        // could hide it instead.
         .onReceive(
-            NotificationCenter.default.publisher(for: ContentView.toggleSettingsNotification)
+            NotificationCenter.default.publisher(for: ContentView.showSettingsNotification)
         ) { _ in
-            showSettings.toggle()
+            showSettings = true
         }
     }
 
-    /// Posted by the menu-bar menus to show or hide the settings section.
-    static let toggleSettingsNotification = Notification.Name("iMonitorToggleSettings")
+    /// Posted by the menu-bar menus to open the settings section.
+    static let showSettingsNotification = Notification.Name("iMonitorShowSettings")
 
     private var settingsIconName: String {
         if #available(macOS 12.0, *) { return "gearshape" } else { return "gear" }

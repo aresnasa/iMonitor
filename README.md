@@ -8,23 +8,32 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 - **Network Monitoring** — Upload/download speed with per-process breakdown
 - **Per-Process Details** — CPU% and memory usage for each process
 - **Hide Menu Bar Icons** — An arrow and separator that tuck icons you choose out of sight (ported from Hidden Bar), with auto-collapse and expand-on-hover
-- **Notch Dropdown** — A small menu-bar dropdown that lists and opens the icons squeezed off behind the camera notch
+- **Hidden Icons Dropdown** — Click the collapsed arrow to list every hidden menu-bar icon in one dropdown — fully hidden ones and icons squeezed behind the notch — click to open, ⌘-drag to rearrange, without expanding the bar
 - **Dark Mode** — Automatically adapts to system appearance
 - **Universal Binary** — Native support for Apple Silicon (arm64) and Intel (x86_64)
 
 ## Menu Bar Icons (Hidden Bar)
 
-Click the arrow in the menu bar to hide or show the icons to its left. **⌘-drag the
-`|` separator** to choose which icons get hidden: everything left of the separator
-hides when collapsed. Right-click the arrow or the separator for the menu (Auto
-Collapse toggle, Notch Items, Settings, Quit).
+Click the arrow to hide the icons to its left. Click it again while collapsed to
+open a dropdown listing **all** hidden menu-bar icons — the fully hidden ones and
+the icons squeezed behind the camera notch — in one place: click an entry to open
+it, or ⌘-drag entries to rearrange the bar. The bar itself never expands; when you
+do need the real bar (to ⌘-drag the `|` separator, for example), right-click the
+arrow and choose *Expand Menu Bar*.
+
+**⌘-drag the `|` separator** to choose which icons get hidden: everything left of
+the separator hides when collapsed. Right-click the arrow or the separator for the
+menu (Show Menu-bar Items, Expand Menu Bar, Auto Collapse toggle, Settings, Quit).
+With icon hiding on, the arrow hosts the icon list itself; the standalone chevron
+only appears when icon hiding is off.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
-the arrow or chevron does not appear after enabling a feature, add it under
-**System Settings › Control Center › Menu Bar**. The notch dropdown only appears on
-a Mac with a camera notch; it needs the **Accessibility permission** to read other
-apps' icons (it prompts on first use). On macOS 27, hiding is per app and uses the
-system's own menu-bar visibility, so iMonitor needs that permission for hiding too.
+the arrow (or the standalone chevron shown when icon hiding is off) does not appear
+after enabling a feature, add it under
+**System Settings › Control Center › Menu Bar**. The icon list needs the
+**Accessibility permission** to read other apps' icons (it prompts on first use).
+On macOS 27, hiding is per app and uses the system's own menu-bar visibility, so
+iMonitor needs that permission for hiding too.
 
 ## Requirements
 
