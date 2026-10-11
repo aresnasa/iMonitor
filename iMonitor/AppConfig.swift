@@ -12,6 +12,42 @@ enum AppConfig {
 
     @UserDefaultsWrapper(key: "colorTheme", default: "default")
     static var colorTheme: String
+
+    // MARK: - Menu bar hiding (Hidden Bar feature)
+    // Ported from dwarvesf/hidden (MIT License, © Dwarves Foundation).
+
+    /// Arrow + separator in the menu bar: move the `|` separator left of the
+    /// icons you want hidden, then click the arrow to hide or show them.
+    @UserDefaultsWrapper(key: "hideMenuBarEnabled", default: true)
+    static var hideMenuBarEnabled: Bool
+
+    /// Re-hide automatically after `hideAutoCollapseSeconds`.
+    @UserDefaultsWrapper(key: "hideAutoCollapseEnabled", default: true)
+    static var hideAutoCollapseEnabled: Bool
+
+    @UserDefaultsWrapper(key: "hideAutoCollapseSeconds", default: 10.0)
+    static var hideAutoCollapseSeconds: Double
+
+    /// Expand the hidden zone when the pointer dwells in the menu bar.
+    @UserDefaultsWrapper(key: "hideHoverToExpandEnabled", default: false)
+    static var hideHoverToExpandEnabled: Bool
+
+    // MARK: - Notch overflow
+
+    /// The little dropdown that lists the menu-bar icons squeezed behind the
+    /// camera notch (so they can still be opened).
+    @UserDefaultsWrapper(key: "notchOverflowEnabled", default: true)
+    static var notchOverflowEnabled: Bool
+
+    /// Posted after the settings pane changes any of the menu-bar options above.
+    /// A notification rather than a setter, matching the mostly-static AppConfig.
+    static let preferencesChangedNotification = Notification.Name("iMonitorPreferencesChanged")
+
+    /// Call after changing the menu-bar options so live components re-read them.
+    static func notifyPreferencesChanged(_ object: Any? = nil) {
+        NotificationCenter.default.post(
+            name: preferencesChangedNotification, object: object)
+    }
 }
 
 @propertyWrapper

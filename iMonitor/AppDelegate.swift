@@ -17,6 +17,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: NSPanel!
     var contentView: ContentView!
     var network: Network!
+    // Hidden Bar feature (ported from dwarvesf/hidden): the arrow/separator pair
+    // that hides menu-bar icons, and the notch-overflow dropdown.
+    var hiddenBarController: HiddenBarController?
+    var notchDropdownItem: NotchDropdownItem?
     let updateManager = UpdateManager()
     @ObservedObject var globalModel = SharedStore.globalModel
     @ObservedObject var systemDataModel = SharedStore.systemDataModel
@@ -66,6 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.network.startListenNetwork()
         updateStatusBar()
+        setupHiddenBarFeatures()
 
         refreshTimer = Timer.scheduledTimer(
             withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true
@@ -86,6 +91,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return nil
             }
             return event
+        }
+    }
+
+    // MARK: - Hidden Bar features (ported from dwarvesf/hidden)
+
+    private func setupHiddenBarFeatures() {
+        AppLogger.info(
+            "HiddenBar: launch flags hideMenuBar=\(AppConfig.hideMenuBarEnabled) "
+                + "notchOverflow=\(AppConfig.notchOverflowEnabled) hasNotch=\(NotchDropdownItem.isSupported)"
+        )
+        if AppConfig.hideMenuBarEnabled {
+            hiddenBarController = HiddenBarController()
+        }
+        if AppConfig.notchOverflowEnabled, NotchDropdownItem.isSupported {
+            notchDropdownItem = NotchDropdownItem()
+        }
+    }
+
+    /// Whether any of this app's windows is on screen. The auto-collapse timer
+    /// defers while one is, so the menu bar does not reshuffle mid-task.
+    var containerIsVisible: Bool {
+        return panel?.isVisible ?? false
+    }
+
+    /// Open the panel with the settings section showing (menu-bar menu entry).
+    func showSettingsFromMenuBar() {
+        if panel?.isVisible != true {
+            togglePanel(nil)
+        }
+        NotificationCenter.default.post(name: ContentView.toggleSettingsNotification, object: nil)
+    }
+
+    /// Prompt to relaunch after a setting that only applies at launch changed.
+    static func presentRestartPrompt() {
+        let alert = NSAlert()
+        alert.messageText = "Restart iMonitor"
+        alert.informativeText = "This menu-bar change needs a restart to take effect."
+        alert.addButton(withTitle: "Restart Now")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            quit()
         }
     }
 
@@ -209,6 +256,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        // Notch overflow: lists the icons squeezed behind the camera notch. Only
+        // offered when the dropdown is enabled and a notched screen is attached.
+        if AppConfig.notchOverflowEnabled, notchDropdownItem != nil {
+            let notchItem = NSMenuItem(
+                title: "Show Notch Items\u{2026}",
+                action: #selector(showNotchItemsFromMenu(_:)),
+                keyEquivalent: "")
+            notchItem.target = self
+            menu.addItem(notchItem)
+
+            menu.addItem(NSMenuItem.separator())
+        }
+
         let quitItem = NSMenuItem(
             title: "Quit iMonitor",
             action: #selector(quitFromMenu(_:)),
@@ -227,6 +287,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func performUpdateFromMenu(_ sender: AnyObject?) {
         performUpdate()
+    }
+
+    @objc private func showNotchItemsFromMenu(_ sender: AnyObject?) {
+        notchDropdownItem?.openOverflow()
     }
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {

@@ -7,48 +7,74 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01C42F1088BE2058CF22A71B /* HiddenBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73460F690D47754D7012AC3 /* HiddenBarController.swift */; };
 		05F763526B26B532C240B352 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */; };
 		095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 767700A10FED351DFF6EF2A1 /* IpEntity.swift */; };
+		0BB90F1AFF832A2DA6C8C971 /* AccessibilityMenuBarInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */; };
+		17CFD01612513DE057781C5D /* ExpandCollapseAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
 		2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC384FC1089FC41B02040979 /* UpdateManager.swift */; };
 		3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */; };
 		3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BD785E69FC443A189BD9EB /* StatusDataModel.swift */; };
 		3DA070CC76C2C79EA3E2FE93 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84EFC1D42659D5C8F8F609CA /* AppLogger.swift */; };
 		3F360029FD2DFB5A2F9B6A2B /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */; };
+		43256DBD1D14545B3D44BB7E /* MenuBarEngineFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */; };
 		45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B6A14EA4C47CCA67F0795B /* Network.swift */; };
+		46C11B26025CA3667F353061 /* HiddenBarAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */; };
 		47317753BBB1D0935EE73079 /* SystemDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F918A29C931619B1AFCE28C /* SystemDataModel.swift */; };
 		4E8D4BD634FE6EA26B3593EB /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5C1714B0FA7CF35930B27B5D /* Main.storyboard */; };
+		54A3225B537CA8214E0C96A1 /* HiddenBarAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */; };
 		5A1815D16384C124DD21C8BC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5138CFE282472B90031FD8A /* AppDelegate.swift */; };
 		6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */; };
+		6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */; };
 		719D7862E4C1A5D998A134A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0330B7177E5F80F52A4E65CC /* Assets.xcassets */; };
 		7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */; };
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
 		ACC1FCD8574F709E05431DF6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B50740B11D3815E58EA39639 /* Preview Assets.xcassets */; };
+		B0C0DCA007148564B0050BFD /* HBNativeVisibilityShim.m in Sources */ = {isa = PBXBuildFile; fileRef = 59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */; };
 		B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6000C2555780235B42C5B3B /* SettingsView.swift */; };
 		BA546140676E413066A9B987 /* GlobalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */; };
 		BC66E4477878D921106D122C /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598007F9E4673ED0913AC8F2 /* AppConfig.swift */; };
+		BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */; };
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
+		BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
+		C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */; };
+		C87A7FB158CBBE6AFA578D90 /* NativeVisibilityEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */; };
 		C96D2943FBC8611CA2BF75C6 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */; };
+		CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */; };
 		F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206723C2C26FCC4941161856 /* NettopIPAggregator.swift */; };
+		FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarEngine.swift; sourceTree = "<group>"; };
 		0330B7177E5F80F52A4E65CC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		05F45D903C41BA05D94BF1CD /* ThemeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModel.swift; sourceTree = "<group>"; };
+		0A9F6AA2A0C657C0E41DA183 /* iMonitor-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "iMonitor-Bridging-Header.h"; sourceTree = "<group>"; };
 		206723C2C26FCC4941161856 /* NettopIPAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopIPAggregator.swift; sourceTree = "<group>"; };
+		22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarAssets.swift; sourceTree = "<group>"; };
 		24BD785E69FC443A189BD9EB /* StatusDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDataModel.swift; sourceTree = "<group>"; };
 		28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalModel.swift; sourceTree = "<group>"; };
+		2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarEngineFactory.swift; sourceTree = "<group>"; };
+		3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityMenuBarInventory.swift; sourceTree = "<group>"; };
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessEntity.swift; sourceTree = "<group>"; };
+		451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyLengthEngine.swift; sourceTree = "<group>"; };
+		4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityBridge.swift; sourceTree = "<group>"; };
 		4F918A29C931619B1AFCE28C /* SystemDataModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemDataModel.swift; sourceTree = "<group>"; };
+		53555AE3C541B164F917C79A /* HBNativeVisibilityShim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HBNativeVisibilityShim.h; sourceTree = "<group>"; };
 		598007F9E4673ED0913AC8F2 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBNativeVisibilityShim.m; sourceTree = "<group>"; };
 		59F05FCAA582E102F54E637A /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		5C1714B0FA7CF35930B27B5D /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
 		65B44EE509AF585A4BAD28AB /* NettopRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopRunner.swift; sourceTree = "<group>"; };
+		6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLayout.swift; sourceTree = "<group>"; };
 		733E532228253D04BA91E966 /* MenuItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItem.swift; sourceTree = "<group>"; };
 		767700A10FED351DFF6EF2A1 /* IpEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IpEntity.swift; sourceTree = "<group>"; };
+		7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchOverflow.swift; sourceTree = "<group>"; };
+		83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityEngine.swift; sourceTree = "<group>"; };
 		84EFC1D42659D5C8F8F609CA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
@@ -56,10 +82,14 @@
 		B50740B11D3815E58EA39639 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarIconView.swift; sourceTree = "<group>"; };
 		BB059BE9CB31C6EA3E6CFFAE /* iMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandCollapseAction.swift; sourceTree = "<group>"; };
 		C6000C2555780235B42C5B3B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarAccessibility.swift; sourceTree = "<group>"; };
+		D73460F690D47754D7012AC3 /* HiddenBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarController.swift; sourceTree = "<group>"; };
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E7B6A14EA4C47CCA67F0795B /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
+		F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchDropdownItem.swift; sourceTree = "<group>"; };
 		FC384FC1089FC41B02040979 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -111,6 +141,7 @@
 				84EFC1D42659D5C8F8F609CA /* AppLogger.swift */,
 				0330B7177E5F80F52A4E65CC /* Assets.xcassets */,
 				38EEF68863702ED88B8279DE /* ContentView.swift */,
+				0A9F6AA2A0C657C0E41DA183 /* iMonitor-Bridging-Header.h */,
 				733E532228253D04BA91E966 /* MenuItem.swift */,
 				E7B6A14EA4C47CCA67F0795B /* Network.swift */,
 				3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */,
@@ -121,6 +152,7 @@
 				FC384FC1089FC41B02040979 /* UpdateManager.swift */,
 				B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */,
 				C71C4639D158106B67BD9CDA /* Base.lproj */,
+				D204BA8C6A4B3D504D7C15F9 /* HiddenBar */,
 				1E58BC510AC480A8EBD8338C /* Model */,
 				C201619F54AECB9349CB17C5 /* Preview Content */,
 				598571AD480869CBEABB8E9C /* Service */,
@@ -142,6 +174,28 @@
 				5C1714B0FA7CF35930B27B5D /* Main.storyboard */,
 			);
 			path = Base.lproj;
+			sourceTree = "<group>";
+		};
+		D204BA8C6A4B3D504D7C15F9 /* HiddenBar */ = {
+			isa = PBXGroup;
+			children = (
+				3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */,
+				C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */,
+				53555AE3C541B164F917C79A /* HBNativeVisibilityShim.h */,
+				59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */,
+				D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */,
+				22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */,
+				D73460F690D47754D7012AC3 /* HiddenBarController.swift */,
+				451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */,
+				02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */,
+				2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */,
+				6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */,
+				4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */,
+				83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */,
+				F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */,
+				7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */,
+			);
+			path = HiddenBar;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -213,17 +267,31 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0BB90F1AFF832A2DA6C8C971 /* AccessibilityMenuBarInventory.swift in Sources */,
 				BC66E4477878D921106D122C /* AppConfig.swift in Sources */,
 				5A1815D16384C124DD21C8BC /* AppDelegate.swift in Sources */,
 				3DA070CC76C2C79EA3E2FE93 /* AppLogger.swift in Sources */,
 				C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */,
+				17CFD01612513DE057781C5D /* ExpandCollapseAction.swift in Sources */,
 				BA546140676E413066A9B987 /* GlobalModel.swift in Sources */,
+				B0C0DCA007148564B0050BFD /* HBNativeVisibilityShim.m in Sources */,
+				54A3225B537CA8214E0C96A1 /* HiddenBarAccessibility.swift in Sources */,
+				46C11B26025CA3667F353061 /* HiddenBarAssets.swift in Sources */,
+				01C42F1088BE2058CF22A71B /* HiddenBarController.swift in Sources */,
 				095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */,
+				6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */,
 				6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */,
+				CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */,
+				43256DBD1D14545B3D44BB7E /* MenuBarEngineFactory.swift in Sources */,
+				C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */,
 				27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */,
+				BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */,
+				C87A7FB158CBBE6AFA578D90 /* NativeVisibilityEngine.swift in Sources */,
 				F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */,
 				BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */,
 				45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */,
+				BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */,
+				FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,
 				B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */,
 				3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */,
@@ -255,6 +323,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"iMonitor/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"HIDDENBAR_NATIVE_VISIBILITY=1",
+				);
 				INFOPLIST_FILE = iMonitor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -262,8 +334,14 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 0.5.11;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fobjc-arc",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) HIDDENBAR_NATIVE_VISIBILITY";
+				SWIFT_OBJC_BRIDGING_HEADER = "iMonitor/iMonitor-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
@@ -401,6 +479,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"iMonitor/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+					"HIDDENBAR_NATIVE_VISIBILITY=1",
+				);
 				INFOPLIST_FILE = iMonitor/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -408,8 +491,14 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				MARKETING_VERSION = 0.5.11;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fobjc-arc",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.aresnasa.iMonitor;
 				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG HIDDENBAR_NATIVE_VISIBILITY";
+				SWIFT_OBJC_BRIDGING_HEADER = "iMonitor/iMonitor-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;

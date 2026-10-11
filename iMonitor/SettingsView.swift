@@ -17,7 +17,11 @@ struct SettingsView: View {
                                 ForEach([0.6, 0.4, 0.85], id: \.self) { usage in
                                     VStack(spacing: 0) {
                                         RoundedRectangle(cornerRadius: 1.5)
-                                            .fill(usage < ThemeModel.overloadedThreshold ? preset.colors.used.color : preset.colors.overloaded.color)
+                                            .fill(
+                                                usage < ThemeModel.overloadedThreshold
+                                                    ? preset.colors.used.color
+                                                    : preset.colors.overloaded.color
+                                            )
                                             .frame(width: 8, height: CGFloat(usage) * 24)
                                         Spacer(minLength: 0)
                                     }
@@ -29,23 +33,38 @@ struct SettingsView: View {
                                 }
                             }
                             Text(preset.displayName)
-                                .font(.system(size: 10, weight: themeModel.selectedPreset == preset ? .semibold : .regular))
-                                .foregroundColor(themeModel.selectedPreset == preset ? .accentColor : .secondary)
+                                .font(
+                                    .system(
+                                        size: 10,
+                                        weight: themeModel.selectedPreset == preset
+                                            ? .semibold : .regular)
+                                )
+                                .foregroundColor(
+                                    themeModel.selectedPreset == preset ? .accentColor : .secondary)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(themeModel.selectedPreset == preset ? Color.accentColor.opacity(0.08) : Color.clear)
+                                .fill(
+                                    themeModel.selectedPreset == preset
+                                        ? Color.accentColor.opacity(0.08) : Color.clear)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 6)
-                                .stroke(themeModel.selectedPreset == preset ? Color.accentColor : Color.gray.opacity(0.25), lineWidth: 1)
+                                .stroke(
+                                    themeModel.selectedPreset == preset
+                                        ? Color.accentColor : Color.gray.opacity(0.25), lineWidth: 1
+                                )
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
+
+            Divider()
+
+            MenuBarSettingsView()
 
             Divider()
 
@@ -86,5 +105,83 @@ struct SettingsView: View {
         let logFile = dir.appendingPathComponent("imonitor.log")
         let fileToSelect = FileManager.default.fileExists(atPath: logFile.path) ? logFile.path : nil
         NSWorkspace.shared.selectFile(fileToSelect, inFileViewerRootedAtPath: dir.path)
+    }
+}
+
+/// Menu-bar icon hiding (ported from Hidden Bar) and the notch-overflow
+/// dropdown. `@AppStorage` persists straight to `UserDefaults`; the
+/// notification lets the live controller re-read the auto-collapse settings,
+/// while toggles that structure the menu bar ask for a restart.
+struct MenuBarSettingsView: View {
+    @AppStorage("hideMenuBarEnabled") private var hideEnabled = true
+    @AppStorage("hideAutoCollapseEnabled") private var autoCollapseEnabled = true
+    @AppStorage("hideAutoCollapseSeconds") private var autoCollapseSeconds = 10.0
+    @AppStorage("hideHoverToExpandEnabled") private var hoverToExpand = false
+    @AppStorage("notchOverflowEnabled") private var notchEnabled = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Menu Bar")
+                .font(.system(size: 11, weight: .semibold))
+
+            Toggle("Hide menu-bar icons (Hidden Bar)", isOn: $hideEnabled)
+                .font(.system(size: 11))
+
+            if hideEnabled {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Toggle("Auto collapse", isOn: $autoCollapseEnabled)
+                            .font(.system(size: 11))
+                        Spacer()
+                        Stepper(
+                            value: $autoCollapseSeconds, in: 3...60, step: 1,
+                            label: {
+                                Text("\(Int(autoCollapseSeconds))s")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            })
+                    }
+                    Toggle("Expand on hover", isOn: $hoverToExpand)
+                        .font(.system(size: 11))
+                }
+                .padding(.leading, 4)
+
+                Text("⌘-drag the | separator in the menu bar to choose which icons get hidden.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Toggle("Notch dropdown (icons behind the camera notch)", isOn: $notchEnabled)
+                .font(.system(size: 11))
+
+            if #available(macOS 26.0, *), hideEnabled || notchEnabled {
+                Text(
+                    "If the arrow or chevron does not appear, enable the iMonitor items in System Settings › Control Center › Menu Bar."
+                )
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if notchEnabled && !NotchDropdownItem.isSupported {
+                Text("No camera notch detected on any attached display.")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .onChange(of: hideEnabled) { _ in needsRestart() }
+        .onChange(of: hoverToExpand) { _ in needsRestart() }
+        .onChange(of: notchEnabled) { _ in needsRestart() }
+        .onChange(of: autoCollapseEnabled) { _ in AppConfig.notifyPreferencesChanged() }
+        .onChange(of: autoCollapseSeconds) { _ in AppConfig.notifyPreferencesChanged() }
+    }
+
+    // Toggles that change which items exist in the menu bar only apply at launch.
+    private func needsRestart() {
+        AppConfig.notifyPreferencesChanged()
+        AppDelegate.presentRestartPrompt()
     }
 }

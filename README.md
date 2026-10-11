@@ -7,8 +7,24 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 - **System Metrics** — Real-time CPU, Memory, and GPU utilization with animated bar charts in the menu bar
 - **Network Monitoring** — Upload/download speed with per-process breakdown
 - **Per-Process Details** — CPU% and memory usage for each process
+- **Hide Menu Bar Icons** — An arrow and separator that tuck icons you choose out of sight (ported from Hidden Bar), with auto-collapse and expand-on-hover
+- **Notch Dropdown** — A small menu-bar dropdown that lists and opens the icons squeezed off behind the camera notch
 - **Dark Mode** — Automatically adapts to system appearance
 - **Universal Binary** — Native support for Apple Silicon (arm64) and Intel (x86_64)
+
+## Menu Bar Icons (Hidden Bar)
+
+Click the arrow in the menu bar to hide or show the icons to its left. **⌘-drag the
+`|` separator** to choose which icons get hidden: everything left of the separator
+hides when collapsed. Right-click the arrow or the separator for the menu (Auto
+Collapse toggle, Notch Items, Settings, Quit).
+
+On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
+the arrow or chevron does not appear after enabling a feature, add it under
+**System Settings › Control Center › Menu Bar**. The notch dropdown only appears on
+a Mac with a camera notch; it needs the **Accessibility permission** to read other
+apps' icons (it prompts on first use). On macOS 27, hiding is per app and uses the
+system's own menu-bar visibility, so iMonitor needs that permission for hiding too.
 
 ## Requirements
 
@@ -64,6 +80,7 @@ The `--release` flag runs the full release cycle: build universal binary + DMG, 
 
 - [eul](https://github.com/gao-sun/eul) — System monitoring API reference
 - [ITraffic](https://github.com/foamzou/ITraffic-monitor-for-mac) — Original network monitoring project
+- [Hidden Bar](https://github.com/dwarvesf/hidden) — Menu-bar icon hiding and notch-overflow menu (MIT, © Dwarves Foundation)
 
 ## License
 

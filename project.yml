@@ -49,6 +49,11 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_ASSET_PATHS: '"iMonitor/Preview Content"'
+        # HiddenBar: Obj-C shim for macOS 27's private MenuBarClientCore.
+        SWIFT_OBJC_BRIDGING_HEADER: iMonitor/iMonitor-Bridging-Header.h
+        OTHER_CFLAGS:
+          - "$(inherited)"
+          - "-fobjc-arc"
 
         INFOPLIST_FILE: iMonitor/Info.plist
         LD_RUNPATH_SEARCH_PATHS:
@@ -57,6 +62,20 @@ targets:
         MARKETING_VERSION: 0.5.11
         PRODUCT_BUNDLE_IDENTIFIER: com.aresnasa.iMonitor
         SWIFT_VERSION: 5.0
+
+      configs:
+        Debug:
+          # macOS 27 native menu-bar hiding (private MenuBarClientCore shim).
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "DEBUG HIDDENBAR_NATIVE_VISIBILITY"
+          GCC_PREPROCESSOR_DEFINITIONS:
+            - "$(inherited)"
+            - "DEBUG=1"
+            - "HIDDENBAR_NATIVE_VISIBILITY=1"
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) HIDDENBAR_NATIVE_VISIBILITY"
+          GCC_PREPROCESSOR_DEFINITIONS:
+            - "$(inherited)"
+            - "HIDDENBAR_NATIVE_VISIBILITY=1"
 
 schemes:
   iMonitor:

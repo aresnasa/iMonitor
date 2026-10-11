@@ -210,7 +210,17 @@ struct ContentView: View {
         }
         .frame(width: 420)
         .background(Color("ContentBGColor"))
+        // The menu-bar menus (gear menu, hidden-bar menu) can ask for the
+        // settings section without knowing the panel's current state.
+        .onReceive(
+            NotificationCenter.default.publisher(for: ContentView.toggleSettingsNotification)
+        ) { _ in
+            showSettings.toggle()
+        }
     }
+
+    /// Posted by the menu-bar menus to show or hide the settings section.
+    static let toggleSettingsNotification = Notification.Name("iMonitorToggleSettings")
 
     private var settingsIconName: String {
         if #available(macOS 12.0, *) { return "gearshape" } else { return "gear" }
