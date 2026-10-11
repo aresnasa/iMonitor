@@ -39,6 +39,13 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "notchOverflowEnabled", default: true)
     static var notchOverflowEnabled: Bool
 
+    /// The icon arrangement the user set by ⌘-dragging the notch-overflow
+    /// popup's rows, so re-reading the live bar does not discard it:
+    /// `{"hidden": [bundle id...], "visible": [...]}`, in display order within
+    /// each array. Empty until the user arranges something.
+    @UserDefaultsWrapper(key: "menuBarArrangement", default: [String: [String]]())
+    static var menuBarArrangement: [String: [String]]
+
     /// Posted after the settings pane changes any of the menu-bar options above.
     /// A notification rather than a setter, matching the mostly-static AppConfig.
     static let preferencesChangedNotification = Notification.Name("iMonitorPreferencesChanged")

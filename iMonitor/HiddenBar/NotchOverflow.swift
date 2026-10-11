@@ -16,6 +16,7 @@ struct MenuBarExtraInfo {
     let appName: String
     let appIcon: NSImage?
     let title: String?
+    let bundleIdentifier: String?
     let pid: pid_t
     let position: CGPoint
     let size: CGSize
@@ -264,8 +265,11 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     ) -> NSMenu {
         let allExtras = extras ?? []
         let resolvedBoundary = boundary ?? Self.currentBoundary().overflowThresholdX
-        let (hiddenExtras, visibleExtras) = MenuBarExtraClassifier.classify(
-            allExtras, boundary: resolvedBoundary)
+        let classified = MenuBarExtraClassifier.classify(allExtras, boundary: resolvedBoundary)
+        // The arrangement the user set in this popup wins for the rows they
+        // have arranged; rows they never arranged keep following the live bar.
+        let (hiddenExtras, visibleExtras) = MenuBarArrangementStore.arranged(
+            hidden: classified.hidden, visible: classified.visible)
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -516,6 +520,11 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         guard !remaining.isEmpty else { return }
         let target = remaining[min(insertIndex, remaining.count - 1)]
 
+        // Remember the arrangement the drop just made, regardless of what
+        // becomes of the physical move below: on a Mac where the synthetic
+        // drag does not land, the popup still opens the way the user set it up.
+        rememberArrangement(rows: rows, droppedAt: draggedIndex, insertion: insertIndex)
+
         AppLogger.info(
             "NotchOverflow: rearranging \(source.info.appName) \u{2192} \(target.info.appName)")
 
@@ -530,6 +539,32 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                 self?.collapseAfterRearrangement(expanded)
             }
         }
+    }
+
+    /// Saves the arrangement the drop created: the rows in their new order,
+    /// with the dropped row joining the section of the row it was dropped
+    /// above (or, at the very end of the list, of the row above it).
+    private func rememberArrangement(
+        rows: [OverflowDragSession.Row], droppedAt draggedIndex: Int, insertion: Int
+    ) {
+        guard rows.indices.contains(draggedIndex) else { return }
+        var reordered = rows
+        let source = reordered.remove(at: draggedIndex)
+        let newIndex = min(insertion, reordered.count)
+        reordered.insert(source, at: newIndex)
+
+        let adopted =
+            MenuBarArrangementStore.adoptedHiddenFlag(
+                afterDropAt: newIndex, in: reordered.map { $0.isHiddenRow })
+            ?? source.isHiddenRow
+
+        var placements: [(bundle: String, section: MenuBarSection)] = []
+        for (index, row) in reordered.enumerated() {
+            guard let bundle = MenuBarArrangementStore.key(of: row.info) else { continue }
+            let hidden = index == newIndex ? adopted : row.isHiddenRow
+            placements.append((bundle, hidden ? .hidden : .visible))
+        }
+        MenuBarArrangementStore.record(placements)
     }
 
     // MARK: - NSMenuDelegate
@@ -604,6 +639,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                         appName: app.localizedName ?? "Unknown",
                         appIcon: app.icon,
                         title: titleRef as? String,
+                        bundleIdentifier: app.bundleIdentifier,
                         pid: app.processIdentifier,
                         position: pos,
                         size: size

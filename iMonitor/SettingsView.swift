@@ -188,6 +188,24 @@ struct MenuBarSettingsView: View {
             Toggle("Notch dropdown (icons behind the camera notch)", isOn: $notchEnabled)
                 .font(.system(size: 11))
 
+            if notchEnabled {
+                HStack(spacing: 6) {
+                    Text(
+                        "The order you set by \u{2318}-dragging the notch list is remembered, "
+                            + "so it opens the way you arranged it."
+                    )
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Reset") {
+                        MenuBarArrangementStore.reset()
+                    }
+                    .controlSize(.small)
+                    .help("Forget the remembered order and follow the live menu bar again")
+                }
+            }
+
             if #available(macOS 26.0, *), hideEnabled || notchEnabled {
                 Text(
                     "If the arrow or chevron does not appear, enable the iMonitor items in System Settings › Control Center › Menu Bar."
