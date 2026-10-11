@@ -29,6 +29,7 @@
 		6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */; };
 		719D7862E4C1A5D998A134A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0330B7177E5F80F52A4E65CC /* Assets.xcassets */; };
 		7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */; };
+		80CF021863AEC26B1ABA36A9 /* MenuBarHoverZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = F906456B30F909A646E3B89D /* MenuBarHoverZone.swift */; };
 		9C74D6F8A715F277D7A40334 /* AccessibilityPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */; };
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
@@ -98,6 +99,7 @@
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E7B6A14EA4C47CCA67F0795B /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
+		F906456B30F909A646E3B89D /* MenuBarHoverZone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarHoverZone.swift; sourceTree = "<group>"; };
 		FC384FC1089FC41B02040979 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -199,6 +201,7 @@
 				34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */,
 				02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */,
 				2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */,
+				F906456B30F909A646E3B89D /* MenuBarHoverZone.swift */,
 				67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */,
 				6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */,
 				4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */,
@@ -319,6 +322,7 @@
 				B0B0CA1BF0B0D17F639327C6 /* MenuBarArrangementStore.swift in Sources */,
 				CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */,
 				43256DBD1D14545B3D44BB7E /* MenuBarEngineFactory.swift in Sources */,
+				80CF021863AEC26B1ABA36A9 /* MenuBarHoverZone.swift in Sources */,
 				FC9FC6F180EE760A7D17045F /* MenuBarItemMover.swift in Sources */,
 				C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */,
 				27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */,

@@ -9,6 +9,9 @@
 //  - the arrow and separator live beside iMonitor's own status item
 //  - auto-collapse timer with an in-menu-bar deferral (never yanks the bar shut
 //    while the pointer is in it, or while an iMonitor panel is open)
+//  - opt-in hover-to-expand limited to EMPTY menu-bar space: a pointer heading
+//    for an app menu or another icon, or a click in the bar, never reveals
+//    the hidden icons
 //  - the context menu carries iMonitor's own actions (Settings, Quit)
 //  - hiding mechanics live in a MenuBarEngine (legacy length inflation on
 //    macOS <= 26, native visibility on macOS 27)
@@ -30,6 +33,19 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private var isToggle = false
     private var hoverMonitor: Any?
     private var hoverDwellTimer: Timer?
+    // Where the pointer came to rest. Moving further than hoverRestTolerance
+    // restarts the dwell, so only a pointer that actually stops can reveal.
+    private var hoverAnchor: NSPoint?
+    // Set by a click in the menu bar - the user is busy with something already
+    // visible - and cleared once the pointer leaves the bar.
+    private var isHoverSuppressed = false
+    private var isHoverProbeInFlight = false
+    // The current expansion is a hover peek: it hides again shortly after the
+    // pointer leaves the bar, unless a click turned it into a regular one.
+    private var isExpandedByHover = false
+    // Whether the pointer was in the bar at the global monitor's last event,
+    // to catch it leaving.
+    private var isPointerInMenuBar = false
     // Set when the user asked for a state change that stalled on the missing
     // Accessibility permission; the matching applicationDidBecomeActive retries it.
     private var isWaitingForAuthorization = false
@@ -39,9 +55,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // separator would make it read "expanded" and no one would put the hiding
     // back; this records what the user actually asked for.
     private var wantsCollapsed = false
-    // Whether some menu-bar menu (this app's or another app's) is tracking.
-    // While one is, auto-collapse defers; after one closes, a collapsed bar
-    // re-asserts its hiding (see scheduleCollapseReassertion).
+    // Whether some menu (this app's or another app's) is tracking. While one
+    // is, auto-collapse defers and hover never reveals; after one closes, a
+    // collapsed bar re-asserts its hiding (see scheduleCollapseReassertion).
     private var isExternalMenuTracking = false
     private var collapseReassertWorkItem: DispatchWorkItem?
     private var menuBarClickMonitor: Any?
@@ -53,13 +69,26 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private static let expandedArrowTooltip = "Hide the menu-bar icons to the left of this arrow"
     private static let collapsedArrowTooltip = "Show the hidden menu-bar icons"
 
+    // Pointer jitter tolerated while it counts as resting.
+    private static let hoverRestTolerance: CGFloat = 4
+    // How soon a hover peek hides again once the pointer has left the bar.
+    private static let hoverPeekRehideDelay: TimeInterval = 1.0
+
+    // Every app's menu tracking - this app's included - is broadcast under
+    // HIToolbox's names; NSMenuDidBeginTrackingNotification is only ever
+    // posted to the tracking app's own notification center.
+    private static let menuTrackingBeganNotification = NSNotification.Name(
+        "com.apple.HIToolbox.beginMenuTrackingNotification")
+    private static let menuTrackingEndedNotification = NSNotification.Name(
+        "com.apple.HIToolbox.endMenuTrackingNotification")
+
     // MARK: - Init
 
     override init() {
         super.init()
         setupUI()
         restoreRemovedStatusItems()
-        setupHoverToExpandIfEnabled()
+        setupPointerMonitors()
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleScreenParametersChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -69,25 +98,20 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleApplicationDidBecomeActive),
             name: NSApplication.didBecomeActiveNotification, object: nil)
-        // Distributed broadcasts fired for EVERY menu-bar menu on the system,
-        // this app's included: opening or closing one makes macOS 26 relayout
-        // the bar, which can reset the inflated separator and pop the hidden
-        // icons back out exactly when the user clicks another app's icon.
+        // Fired for EVERY menu on the system, this app's included: opening or
+        // closing a menu-bar menu makes macOS 26 relayout the bar, which can
+        // reset the inflated separator and pop the hidden icons back out
+        // exactly when the user clicks another app's icon. Deliver-immediately,
+        // so AppKit's suspension of distributed notifications while the app is
+        // inactive (a menu-bar app nearly always is) never holds them back.
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(handleExternalMenuTrackingBegan),
-            name: NSNotification.Name("NSMenuDidBeginTrackingNotification"), object: nil)
+            name: Self.menuTrackingBeganNotification, object: nil,
+            suspensionBehavior: .deliverImmediately)
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(handleExternalMenuTrackingEnded),
-            name: NSNotification.Name("NSMenuDidEndTrackingNotification"), object: nil)
-        // Self-heal fallback in case the distributed notifications ever stop
-        // arriving: any click landing in the menu-bar band also schedules a
-        // re-assertion, so a reset hiding comes back on its own.
-        menuBarClickMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: .leftMouseDown
-        ) { [weak self] _ in
-            guard let self = self, self.isMouseInMenuBar else { return }
-            self.scheduleCollapseReassertion(after: 1.0)
-        }
+            name: Self.menuTrackingEndedNotification, object: nil,
+            suspensionBehavior: .deliverImmediately)
 
         // Collapse shortly after launch, mirroring Hidden Bar: the hidden zone is
         // hidden until the user asks for it. Deferred so the bar has settled: the
@@ -128,11 +152,14 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     func tearDown() {
         timer?.invalidate()
         timer = nil
-        hoverDwellTimer?.invalidate()
-        hoverDwellTimer = nil
+        cancelHoverDwell()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
             hoverMonitor = nil
+        }
+        if let monitor = menuBarClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            menuBarClickMonitor = nil
         }
         menuBarEngine.expand()
         NSStatusBar.system.removeStatusItem(toggleItem)
@@ -177,72 +204,171 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         _ = menuBarEngine
     }
 
-    // Hover-to-expand, two zones:
-    // - the arrow itself: always active, expands after the configurable
-    //   `hideHoverExpandSeconds` dwell (0 = immediately). Delivered by a
-    //   tracking area on the button, because a global event monitor never
-    //   sees events over this app's own status-item windows.
-    // - the whole menu-bar band: opt-in via `hideHoverToExpandEnabled`, read
-    //   live so the settings toggle needs no restart; a fixed short dwell so
-    //   a pointer merely passing through doesn't expand.
-    private func setupHoverToExpandIfEnabled() {
-        setupToggleButtonHoverTracking()
-        hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
-            guard let self = self else { return }
-            guard AppConfig.hideHoverToExpandEnabled,
-                self.isCollapsed && self.isMouseInMenuBar
-            else {
-                self.hoverDwellTimer?.invalidate()
-                self.hoverDwellTimer = nil
-                return
-            }
-            // Short dwell so a pointer merely passing through doesn't expand.
-            guard self.hoverDwellTimer == nil else { return }
-            self.hoverDwellTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) {
-                [weak self] _ in
-                guard let self = self else { return }
-                self.hoverDwellTimer = nil
-                if self.isCollapsed && self.isMouseInMenuBar {
-                    self.expandMenubar()
-                }
-            }
+    // MARK: - Pointer monitoring
+
+    // Global monitors never see events over this app's own windows (the arrow,
+    // the panel). That suits hover-to-expand, which is about the bar's empty
+    // stretch; clicks on the arrow arrive through its own action instead.
+    private func setupPointerMonitors() {
+        hoverMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) {
+            [weak self] _ in
+            self?.handlePointerMoved()
+        }
+        // Clicks in the bar suppress hover reveals until the pointer leaves it.
+        // They also schedule a re-assertion, a self-heal in case the
+        // menu-tracking broadcasts ever stop arriving: a hiding that a foreign
+        // menu's relayout reset comes back on its own.
+        menuBarClickMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            guard let self = self, self.isMouseInMenuBar else { return }
+            self.handleMenuBarClick()
         }
     }
 
-    private func setupToggleButtonHoverTracking() {
-        guard let button = toggleItem.button else { return }
-        button.addTrackingArea(
-            NSTrackingArea(
-                rect: button.bounds,
-                options: [.mouseEnteredAndExited, .activeAlways],
-                owner: self))
-    }
+    // MARK: - Hover to expand
 
-    // Entered the arrow's bounds: arm the configured dwell (or expand at once
-    // when it is 0). Suppressed while the click debounce is running, or the
-    // slide that follows a collapse would instantly re-expand under a pointer
-    // that is still resting on the arrow's new position.
-    @objc func mouseEntered(with event: NSEvent) {
-        guard isCollapsed, !isToggle else { return }
-        hoverDwellTimer?.invalidate()
-        let delay = AppConfig.hideHoverExpandSeconds
-        guard delay > 0 else {
-            expandMenubar()
+    // Opt-in via `hideHoverToExpandEnabled`, read live so the settings toggle
+    // needs no restart. Only an EMPTY stretch of the bar counts - on the
+    // arrow's hidden side, past the frontmost app's menus, on no icon - and
+    // only once the pointer has come to rest there for
+    // `hideHoverExpandSeconds`. A pointer passing through on its way to an app
+    // menu or another icon, or any click in the bar, never reveals the hidden
+    // icons. The arrow itself never hover-expands: clicking it opens the
+    // hidden-icons dropdown, and a hover expansion would turn that click into
+    // a collapse. A reveal is a peek that hides again once the pointer leaves
+    // the bar (see pointerDidLeaveMenuBar).
+    private func handlePointerMoved() {
+        let isInBar = isMouseInMenuBar
+        if isInBar != isPointerInMenuBar {
+            isPointerInMenuBar = isInBar
+            if !isInBar {
+                pointerDidLeaveMenuBar()
+            }
+        }
+        guard isInBar, mayRevealOnHover else {
+            cancelHoverDwell()
             return
         }
-        hoverDwellTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) {
+        let location = NSEvent.mouseLocation
+        if hoverDwellTimer != nil, let anchor = hoverAnchor,
+            hypot(location.x - anchor.x, location.y - anchor.y) <= Self.hoverRestTolerance
+        {
+            return  // Still resting: let the running dwell finish.
+        }
+        hoverAnchor = location
+        hoverDwellTimer?.invalidate()
+        let dwell = max(AppConfig.hideHoverExpandSeconds, AppConfig.minimumHoverExpandSeconds)
+        hoverDwellTimer = Timer.scheduledTimer(withTimeInterval: dwell, repeats: false) {
             [weak self] _ in
-            guard let self = self else { return }
-            self.hoverDwellTimer = nil
-            if self.isCollapsed {
-                self.expandMenubar()
-            }
+            self?.hoverDwellElapsed()
         }
     }
 
-    @objc func mouseExited(with event: NSEvent) {
+    private func hoverDwellElapsed() {
+        hoverDwellTimer = nil
+        let location = NSEvent.mouseLocation
+        guard !isHoverProbeInFlight, isClearToRevealOnHover,
+            let probePoint = hoverProbePoint(for: location)
+        else { return }
+        isHoverProbeInFlight = true
+        MenuBarHitTester.probe(at: probePoint) { [weak self] hit in
+            guard let self = self else { return }
+            self.isHoverProbeInFlight = false
+            let isEmpty =
+                hit == .emptySpace
+                || (hit == .ownItem && self.isOverInflatedSeparator(location))
+            let now = NSEvent.mouseLocation
+            // Re-checked: the hit-test took a moment, and the pointer may have
+            // moved on or a menu opened since.
+            guard isEmpty, self.isClearToRevealOnHover,
+                hypot(now.x - location.x, now.y - location.y) <= Self.hoverRestTolerance
+            else { return }
+            self.expandMenubar(reason: "hover on empty menu-bar space")
+            self.isExpandedByHover = true
+        }
+    }
+
+    // Cheap enough to check on every mouse move.
+    private var mayRevealOnHover: Bool {
+        return AppConfig.hideHoverToExpandEnabled && wantsCollapsed && isCollapsed
+            && !isHoverSuppressed
+    }
+
+    // Checked once a dwell completes, before and after the hit-test.
+    private var isClearToRevealOnHover: Bool {
+        return mayRevealOnHover && isMouseInMenuBar && NSEvent.pressedMouseButtons == 0
+            && !isOwnPanelVisible && !Self.isMenuPresented && !isExternalMenuTracking
+            && !Self.isPopUpMenuOnScreen
+    }
+
+    /// Where to hit-test for a pointer at `location`, or nil when it is not on
+    /// the arrow's hidden side of a menu bar. Probes the bar's vertical middle,
+    /// so a pointer pinned against the screen's top edge still lands on the
+    /// bar's content.
+    private func hoverProbePoint(for location: NSPoint) -> NSPoint? {
+        guard let screen = Self.menuBarScreen(containing: location),
+            let arrowWindow = toggleItem.button?.window
+        else { return nil }
+        let arrowScreen = arrowWindow.screen ?? screen
+        guard
+            MenuBarHoverZone.contains(
+                x: location.x, screenFrame: screen.frame, arrowFrame: arrowWindow.frame,
+                arrowScreenFrame: arrowScreen.frame,
+                notch: MenuBarHoverZone.notchSpan(of: screen),
+                isLTR: MenuBarOrder.isUsingLTRLanguage)
+        else { return nil }
+        return NSPoint(x: location.x, y: (screen.visibleFrame.maxY + screen.frame.maxY) / 2)
+    }
+
+    // On macOS <= 26 the collapsed bar's empty stretch is this app's own
+    // inflated separator, which hit-tests as one of its own items. Under native
+    // hiding the separator is off the bar while collapsed.
+    private func isOverInflatedSeparator(_ location: NSPoint) -> Bool {
+        guard separatorItem.isVisible, let frame = separatorItem.button?.window?.frame
+        else { return false }
+        return frame.contains(location)
+    }
+
+    // Some app's menu is open: windows at the pop-up menu level are menus (or
+    // similar transient pop-ups). Ground truth that needs no broadcast.
+    private static var isPopUpMenuOnScreen: Bool {
+        let menuLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
+        guard
+            let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+                as? [[String: Any]]
+        else { return false }
+        return windows.contains { ($0[kCGWindowLayer as String] as? Int) == menuLevel }
+    }
+
+    private func pointerDidLeaveMenuBar() {
+        isHoverSuppressed = false
+        cancelHoverDwell()
+        if isExpandedByHover {
+            startTimerToAutoHide(after: Self.hoverPeekRehideDelay)
+        }
+    }
+
+    // A click in the bar is aimed at something already visible: no reveal may
+    // land under it, and a peek the user clicked into (opening one of the
+    // revealed icons) becomes a regular expansion under the auto-collapse
+    // setting, so it is not pulled away from under that icon's menu.
+    private func handleMenuBarClick() {
+        isHoverSuppressed = true
+        cancelHoverDwell()
+        if isExpandedByHover {
+            isExpandedByHover = false
+            timer?.invalidate()
+            timer = nil
+            autoCollapseIfNeeded()
+        }
+        scheduleCollapseReassertion(after: 1.0)
+    }
+
+    private func cancelHoverDwell() {
         hoverDwellTimer?.invalidate()
         hoverDwellTimer = nil
+        hoverAnchor = nil
     }
 
     // MARK: - State
@@ -259,10 +385,13 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // to ~zero, so this returns false there: intentional, no visible menubar =
     // no deferral.
     private var isMouseInMenuBar: Bool {
-        let mouse = NSEvent.mouseLocation
-        return NSScreen.screens.contains { screen in
-            mouse.x >= screen.frame.minX && mouse.x <= screen.frame.maxX
-                && mouse.y >= screen.visibleFrame.maxY && mouse.y <= screen.frame.maxY
+        return Self.menuBarScreen(containing: NSEvent.mouseLocation) != nil
+    }
+
+    private static func menuBarScreen(containing point: NSPoint) -> NSScreen? {
+        return NSScreen.screens.first { screen in
+            point.x >= screen.frame.minX && point.x <= screen.frame.maxX
+                && point.y >= screen.visibleFrame.maxY && point.y <= screen.frame.maxY
         }
     }
 
@@ -282,6 +411,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // MARK: - Actions
 
     @objc private func toggleButtonPressed(sender: NSStatusBarButton) {
+        // A click on the arrow is a click in the bar too, one the global
+        // monitor never sees: no hover reveal may follow right after it.
+        isHoverSuppressed = true
+        cancelHoverDwell()
         let event = NSApp.currentEvent
         // AXPress synthesis carries no NSEvent; the resolver maps nil to .toggle
         // so VoiceOver can operate the bar.
@@ -323,7 +456,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
                 self?.openOverflowMenu()
             }
         } else if wantsCollapsed {
-            expandMenubar()
+            expandMenubar(reason: "arrow click")
         } else {
             collapseIfPossible()
         }
@@ -366,6 +499,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // expanded.
     private func didFailToCollapseMenuBar() {
         wantsCollapsed = false
+        isExpandedByHover = false
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
             button.toolTip = Self.expandedArrowTooltip
@@ -374,14 +508,19 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     private func didCollapseMenuBar() {
         wantsCollapsed = true
+        isExpandedByHover = false
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.collapseImage
             button.toolTip = Self.collapsedArrowTooltip
         }
     }
 
-    private func expandMenubar() {
+    // Logged with its trigger, so "the hidden icons came back by themselves"
+    // can be traced to what asked for it.
+    private func expandMenubar(reason: String) {
+        AppLogger.info("HiddenBar: expanding the menu bar (\(reason))")
         wantsCollapsed = false
+        isExpandedByHover = false
         menuBarEngine.expand()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
@@ -443,7 +582,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             completion(false)
             return
         }
-        expandMenubar()
+        expandMenubar(reason: "rearranging icons")
         // Nothing may yank the bar shut while the synthetic drag is in flight.
         timer?.invalidate()
         timer = nil
@@ -466,18 +605,24 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         startTimerToAutoHide()
     }
 
-    private func startTimerToAutoHide() {
+    private func startTimerToAutoHide(
+        after interval: TimeInterval = AppConfig.hideAutoCollapseSeconds
+    ) {
         timer?.invalidate()
-        self.timer = Timer.scheduledTimer(
-            withTimeInterval: AppConfig.hideAutoCollapseSeconds, repeats: false
-        ) { [weak self] _ in
-            guard let self = self, AppConfig.hideAutoCollapseEnabled else { return }
+        self.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) {
+            [weak self] _ in
+            guard let self = self else { return }
+            // A hover peek hides again by itself even with auto-collapse off;
+            // any other expansion follows the setting.
+            guard self.isExpandedByHover || AppConfig.hideAutoCollapseEnabled else { return }
             // Don't yank the bar shut mid-interaction: while the pointer is in the
             // menubar (hovering, clicking, dragging icons) or an iMonitor panel is
             // open, defer and re-arm. Intentionally unbounded; each re-arm
             // invalidates the previous timer, so deferral never accumulates timers.
             if self.shouldDeferAutoCollapse {
-                self.startTimerToAutoHide()
+                self.startTimerToAutoHide(
+                    after: self.isExpandedByHover
+                        ? Self.hoverPeekRehideDelay : AppConfig.hideAutoCollapseSeconds)
             } else {
                 self.collapseIfPossible()
             }
@@ -537,7 +682,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     /// Full expansion for the shared menu's "Expand Menu Bar" action.
     func expandMenuBar() {
-        expandMenubar()
+        expandMenubar(reason: "Expand Menu Bar menu item")
     }
 
     /// Backing of the shared menu's Auto Collapse item: applies the flipped

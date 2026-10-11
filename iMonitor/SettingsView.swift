@@ -118,7 +118,7 @@ struct MenuBarSettingsView: View {
     @AppStorage("hideAutoCollapseEnabled") private var autoCollapseEnabled = true
     @AppStorage("hideAutoCollapseSeconds") private var autoCollapseSeconds = 10.0
     @AppStorage("hideHoverToExpandEnabled") private var hoverToExpand = false
-    @AppStorage("hideHoverExpandSeconds") private var hoverExpandSeconds = 0.0
+    @AppStorage("hideHoverExpandSeconds") private var hoverExpandSeconds = 0.5
     @AppStorage("notchOverflowEnabled") private var notchEnabled = true
 
     // Only meaningful while Accessibility is missing; refreshed whenever the app
@@ -149,29 +149,38 @@ struct MenuBarSettingsView: View {
                     }
                     Toggle("Expand on hover", isOn: $hoverToExpand)
                         .font(.system(size: 11))
-
-                    // Resting the pointer on the arrow itself always expands
-                    // the bar; this is only how long it must rest there.
-                    HStack(spacing: 6) {
-                        Text("Arrow hover delay")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Stepper(
-                            value: $hoverExpandSeconds, in: 0...5, step: 0.5,
-                            label: {
-                                Text(
-                                    hoverExpandSeconds == 0
-                                        ? "Immediately"
-                                        : String(format: "%.1fs", hoverExpandSeconds)
-                                )
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            }
-                        )
                         .help(
-                            "How long the pointer must rest on the arrow before "
-                                + "the hidden icons appear; 0 shows them immediately")
+                            "Rest the pointer on an empty part of the menu bar to peek at the "
+                                + "hidden icons. Moving over app menus or other icons, or "
+                                + "clicking them, never reveals them.")
+
+                    // Only an empty stretch of the bar reveals (the arrow
+                    // itself opens the dropdown on click), after this rest.
+                    if hoverToExpand {
+                        HStack(spacing: 6) {
+                            Text("Hover delay")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Stepper(
+                                value: $hoverExpandSeconds,
+                                in: AppConfig.minimumHoverExpandSeconds...5, step: 0.5,
+                                label: {
+                                    Text(
+                                        String(
+                                            format: "%.1fs",
+                                            max(
+                                                hoverExpandSeconds,
+                                                AppConfig.minimumHoverExpandSeconds))
+                                    )
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                }
+                            )
+                            .help(
+                                "How long the pointer must rest on an empty part of the menu "
+                                    + "bar before the hidden icons appear")
+                        }
                     }
 
                     // Both features below silently do nothing without this

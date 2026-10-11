@@ -27,6 +27,12 @@ menu (Show Menu-bar Items, Expand Menu Bar, Auto Collapse toggle, Settings, Quit
 With icon hiding on, the arrow hosts the icon list itself; the standalone chevron
 only appears when icon hiding is off.
 
+**Expand on hover** (Settings, off by default) peeks at the hidden icons when the
+pointer *rests* on an empty part of the menu bar — on the arrow's hidden side,
+past the app's menus. Moving across the bar to an app menu or another icon, or
+clicking one, never reveals them, and a peek hides again once the pointer leaves
+the bar. The arrow itself never expands on hover: clicking it opens the list.
+
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear
 after enabling a feature, add it under

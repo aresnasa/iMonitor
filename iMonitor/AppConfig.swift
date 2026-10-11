@@ -28,16 +28,20 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "hideAutoCollapseSeconds", default: 10.0)
     static var hideAutoCollapseSeconds: Double
 
-    /// Expand the hidden zone when the pointer dwells anywhere in the menu bar
-    /// band (read live by the hover monitor, so toggling needs no restart).
+    /// Peek at the hidden icons while the pointer rests on an EMPTY part of the
+    /// menu bar (the arrow's hidden side, past the app's menus, on no icon);
+    /// they hide again once the pointer leaves the bar. Read live by the hover
+    /// monitor, so toggling needs no restart.
     @UserDefaultsWrapper(key: "hideHoverToExpandEnabled", default: false)
     static var hideHoverToExpandEnabled: Bool
 
-    /// Pointer dwell over the arrow itself before it expands the hidden zone.
-    /// 0 expands immediately; raise it if a passing pointer keeps revealing
-    /// the bar.
-    @UserDefaultsWrapper(key: "hideHoverExpandSeconds", default: 0.0)
+    /// How long the pointer must rest there before the hidden icons appear.
+    /// Never below `minimumHoverExpandSeconds`, so a pointer merely passing
+    /// through on its way to an app menu or another icon never counts.
+    @UserDefaultsWrapper(key: "hideHoverExpandSeconds", default: 0.5)
     static var hideHoverExpandSeconds: Double
+
+    static let minimumHoverExpandSeconds: Double = 0.5
 
     // MARK: - Notch overflow
 
