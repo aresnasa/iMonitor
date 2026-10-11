@@ -104,3 +104,4 @@ build/
 */*.dmg
 dist/**/*.dmg
 diss/
+.probe/dd.noindex/

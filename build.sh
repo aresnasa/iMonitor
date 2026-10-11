@@ -38,7 +38,9 @@ LOCAL_TAP_CASK="/opt/homebrew/Library/Taps/${GITHUB_OWNER}/homebrew-tap/Casks/im
 # ── Paths ────────────────────────────────────────────────────────────────────
 BUILD_DIR="./build"
 DIST_DIR="./dist"
-APP_BUNDLE="${BUILD_DIR}/Release/${APP_NAME}.app"
+# project.yml builds into "<Configuration>.noindex" to keep build products out
+# of Spotlight (no duplicate iMonitor entries in search or the Apps view).
+APP_BUNDLE="${BUILD_DIR}/Release.noindex/${APP_NAME}.app"
 CONTENTS_DIR="${APP_BUNDLE}/Contents"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 ENTITLEMENTS_ADHOC="./iMonitor/iMonitor-adhoc.entitlements"

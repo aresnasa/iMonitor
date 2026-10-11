@@ -50,6 +50,12 @@ targets:
         # script out of the sandbox so it can reach the login keychain.
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         COMBINE_HIDPI_IMAGES: YES
+        # Products land in "<Configuration>.noindex" so Spotlight - and the Apps
+        # view built on it - never lists Xcode's DerivedData copy or build.sh's
+        # copy as extra iMonitor apps beside the installed one. macOS honours a
+        # ".noindex" folder suffix (a .metadata_never_index marker is ignored
+        # on macOS 27). Xcode already names its Intermediates folder this way.
+        CONFIGURATION_BUILD_DIR: "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME).noindex"
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_ASSET_PATHS: '"iMonitor/Preview Content"'
         # HiddenBar: Obj-C shim for macOS 27's private MenuBarClientCore.
