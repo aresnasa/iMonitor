@@ -30,6 +30,8 @@ final class NotchDropdownItem: NSObject {
     override init() {
         super.init()
         if let button = statusItem.button {
+            // Down while the list is closed; the controller flips it up while
+            // the list is on screen (wired below).
             button.image = HiddenBarAssets.notchDropdownImage
             button.toolTip = "Menu-bar icons hidden behind the camera notch"
             button.target = self
@@ -40,6 +42,19 @@ final class NotchDropdownItem: NSObject {
         // flow so the user can (re)enable it in System Settings › Control Center.
         statusItem.behavior = [.removalAllowed]
         statusItem.isVisible = true
+
+        // The list is this item's whole job, so its chevron reflects the list's
+        // own state (down = opens below, up = on screen) rather than the hidden
+        // bar's. That also keeps it reading as a menu button instead of as a
+        // second hide/show arrow next to the real one.
+        overflowController.onMenuWillPresent = { [weak self] item in
+            guard item === self?.statusItem else { return }
+            item.button?.image = HiddenBarAssets.notchDropdownOpenImage
+        }
+        overflowController.onMenuDidDismiss = { [weak self] item in
+            guard item === self?.statusItem else { return }
+            item.button?.image = HiddenBarAssets.notchDropdownImage
+        }
     }
 
     deinit {

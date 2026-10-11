@@ -28,9 +28,10 @@ final class OverflowDragSession {
     /// replica draws each row where it really sat and a cursor position maps to
     /// the same row the user saw.
     private let rowRects: [NSRect]
-    /// Called with (dragged row index, insertion gap 0...rows.count).
-    private let onFinish: (Int, Int) -> Void
-    private let onCancel: () -> Void
+    /// Called with (dragged row index, insertion gap 0...rows.count). Set by the
+    /// owner after init so the closures can identify this session by identity.
+    var onFinish: ((Int, Int) -> Void)?
+    var onCancel: (() -> Void)?
 
     private var panel: NSPanel?
     private weak var overlay: OverflowReplicaView?
@@ -42,21 +43,12 @@ final class OverflowDragSession {
     /// dragged row can travel a little past the list before the panel clips it.
     static let verticalMargin: CGFloat = 80
 
-    init(
-        rows: [Row],
-        draggedIndex: Int,
-        menuFrame: NSRect,
-        rowRects: [NSRect],
-        onFinish: @escaping (Int, Int) -> Void,
-        onCancel: @escaping () -> Void
-    ) {
+    init(rows: [Row], draggedIndex: Int, menuFrame: NSRect, rowRects: [NSRect]) {
         self.rows = rows
         self.draggedIndex = draggedIndex
         self.menuFrame = menuFrame
         self.rowRects = rowRects
         self.insertionGap = draggedIndex
-        self.onFinish = onFinish
-        self.onCancel = onCancel
     }
 
     deinit {
@@ -68,7 +60,15 @@ final class OverflowDragSession {
     /// Put up the replica and start tracking. Call from the main queue *after*
     /// the menu has been told to close, so the two never overlap.
     func start() {
-        guard !finished, rows.indices.contains(draggedIndex) else { return }
+        // A fast click can be released before the menu's tracking loop hands
+        // control back - in that case the mouse-up was eaten by the menu and a
+        // session would wait for a release that already happened.
+        guard !finished, rows.indices.contains(draggedIndex),
+            NSEvent.pressedMouseButtons & 0x1 != 0
+        else {
+            cancel()
+            return
+        }
         let frame = NSRect(
             x: menuFrame.minX, y: menuFrame.minY - Self.verticalMargin,
             width: menuFrame.width, height: menuFrame.height + Self.verticalMargin * 2)
@@ -180,14 +180,16 @@ final class OverflowDragSession {
         update(atScreenPoint: point)
         let gap = insertionGap
         tearDown()
-        onFinish(draggedIndex, gap)
+        onFinish?(draggedIndex, gap)
     }
 
-    private func cancel() {
+    /// Ends the session without a move. Also used by the owner to clear a
+    /// session whose mouse-up never arrived.
+    func cancel() {
         guard !finished else { return }
         finished = true
         tearDown()
-        onCancel()
+        onCancel?()
     }
 
     private func tearDown() {

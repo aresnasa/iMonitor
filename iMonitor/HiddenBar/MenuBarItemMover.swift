@@ -44,7 +44,7 @@ enum MenuBarItemMover {
             return
         }
 
-        let from = grabPoint(for: source.element, frame: sourceFrame, among: liveFrames)
+        let from = grabPoint(for: source, frame: sourceFrame)
         let to = CGPoint(x: targetFrame.midX, y: from.y)
         let returnCursor = currentCursorInCGCoordinates()
         let eventSource = CGEventSource(stateID: .hidSystemState)
@@ -70,16 +70,17 @@ enum MenuBarItemMover {
             (
                 0.05,
                 {
-                    // Report what actually happened instead of assuming success: when
-                    // icons overlap, the bar may have grabbed a neighbour.
+                    // Report what actually happened instead of assuming success. The
+                    // tolerance must be tighter than the narrowest slot pitch, or a
+                    // neighbouring item would look like a success.
                     let landed =
                         liveFrame(of: source.element).map { frame in
-                            abs(frame.midX - to.x) < max(24, frame.width)
+                            abs(frame.midX - to.x) < 12
                         } ?? false
                     if !landed {
                         AppLogger.warn(
                             "MenuBarItemMover: \(source.appName) did not land on the target; "
-                                + "the bar may have grabbed an overlapping icon")
+                                + "the system ignored the synthetic drag or grabbed another icon")
                     }
                     completion(landed)
                 }
@@ -89,29 +90,62 @@ enum MenuBarItemMover {
 
     // MARK: - Grab point
 
-    /// Centre of the frame, or — when other icons overlap it — the first of its
-    /// inner edges no other icon covers, so the bar's hit test picks the
-    /// intended item.
-    private static func grabPoint(
-        for sourceElement: AXUIElement,
-        frame: CGRect,
-        among liveFrames: [(element: AXUIElement, frame: CGRect)]
-    ) -> CGPoint {
-        let covered = { (x: CGFloat) -> Bool in
-            liveFrames.contains { other in
-                !CFEqual(other.element, sourceElement)
-                    && other.frame.contains(CGPoint(x: x, y: frame.midY))
-            }
+    /// A pixel of `frame` that the system's own hit test attributes to the
+    /// source, so the ⌘-drag grabs the intended icon (icons overlap by design in
+    /// the pile this feature exists for). Items macOS no longer draws on the bar
+    /// have no such pixel anywhere; the centre is returned then, and the
+    /// caller's post-move check reports the failure.
+    private static func grabPoint(for source: MenuBarExtraInfo, frame: CGRect) -> CGPoint {
+        let systemWide = AXUIElementCreateSystemWide()
+        var candidates: [CGFloat] = [frame.midX]
+        var x = frame.minX + 2
+        while x <= frame.maxX - 2 {
+            candidates.append(x)
+            x += 4
         }
-        for candidate in [frame.midX, frame.minX + 5, frame.maxX - 5] where !covered(candidate) {
+        // Centre-out, so any accepted pixel stays as close to the centre as it
+        // can.
+        candidates.sort { abs($0 - frame.midX) < abs($1 - frame.midX) }
+
+        for candidate in candidates {
+            var hit: AXUIElement?
+            guard
+                AXUIElementCopyElementAtPosition(
+                    systemWide, Float(candidate), Float(frame.midY), &hit)
+                    == .success,
+                let hit = hit, isSameItem(hit, as: source.element, frame: frame)
+            else { continue }
             return CGPoint(x: candidate, y: frame.midY)
         }
+
+        AppLogger.warn(
+            "MenuBarItemMover: \(source.appName) has no clickable pixel on the bar "
+                + "(macOS is not drawing it); it cannot be dragged right now")
         return CGPoint(x: frame.midX, y: frame.midY)
+    }
+
+    /// The hit test hands back a freshly resolved element, so equality is
+    /// checked both ways: by identity and by (pid, position).
+    private static func isSameItem(_ hit: AXUIElement, as known: AXUIElement, frame: CGRect) -> Bool
+    {
+        if CFEqual(hit, known) { return true }
+        var hitPID: pid_t = 0
+        var knownPID: pid_t = 0
+        AXUIElementGetPid(hit, &hitPID)
+        AXUIElementGetPid(known, &knownPID)
+        guard hitPID == knownPID else { return false }
+        guard let hitFrame = elementFrame(hit) else { return false }
+        return abs(hitFrame.origin.x - frame.origin.x) < 2
+            && abs(hitFrame.origin.y - frame.origin.y) < 2
     }
 
     // MARK: - AX access
 
     private static func liveFrame(of element: AXUIElement) -> CGRect? {
+        return elementFrame(element)
+    }
+
+    private static func elementFrame(_ element: AXUIElement) -> CGRect? {
         var positionRef: AnyObject?
         guard
             AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)

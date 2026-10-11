@@ -136,6 +136,13 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     var prepareForRearrangement: (@escaping (Bool) -> Void) -> Void = { $0(false) }
     var collapseAfterRearrangement: (Bool) -> Void = { _ in }
 
+    /// Called with the hosting item just before its menu starts tracking and
+    /// again right after the menu closes, so the item can reflect that state in
+    /// its glyph. Unused by the hidden-bar arrow, which opens this menu as a
+    /// fallback but keeps its own left/right chevrons.
+    var onMenuWillPresent: ((NSStatusItem) -> Void)?
+    var onMenuDidDismiss: ((NSStatusItem) -> Void)?
+
     private var dragSession: OverflowDragSession?
     /// The reorderable rows of the menu last built, in display order.
     private var menuRows: [OverflowDragSession.Row] = []
@@ -199,7 +206,11 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             guard let self = self else { return }
             let menu = self.buildOverflowMenu(extras: extras, boundary: boundary)
             item.menu = menu
+            self.onMenuWillPresent?(item)
             item.button?.performClick(nil)
+            // performClick runs the menu's tracking loop, so this line is only
+            // reached once the menu has closed.
+            self.onMenuDidDismiss?(item)
             // Detach so the next left click runs the button action again instead
             // of re-opening a stale menu.
             DispatchQueue.main.async {
@@ -218,7 +229,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     private func presentPermissionGuidedMenu(for item: NSStatusItem) {
         itemAwaitingPermission = item
         item.menu = buildOverflowMenu(needsAccessibilityHelp: true)
+        onMenuWillPresent?(item)
         item.button?.performClick(nil)
+        onMenuDidDismiss?(item)
         DispatchQueue.main.async {
             item.menu = nil
         }
@@ -347,8 +360,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         let item = NSMenuItem()
         let title = (info.title?.isEmpty == false) ? info.title! : info.appName
         // Kept for Accessibility even though the row view paints the visible
-        // content: Assistive clients read the item's title.
-        item.title = OverflowRowView.displayTitle(title: title, hidden: hidden)
+        // content: Assistive clients read the item's title. The drawn eye
+        // marker is invisible to them, so hidden rows say so in words.
+        item.title = OverflowRowView.accessibilityTitle(title: title, hidden: hidden)
 
         let row = OverflowRowView(rowIndex: rowIndex, info: info, hidden: hidden, width: width)
         row.onCommandDrag = { [weak self] row in self?.beginRearrangeDrag(row) }
@@ -433,10 +447,19 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     /// replica (OverflowDragSession) tracking the mouse. The drop is then
     /// applied to the real bar by MenuBarItemMover.
     private func beginRearrangeDrag(_ row: OverflowRowView) {
-        guard dragSession == nil, menuRows.count > 1,
+        guard menuRows.count > 1,
             let menu = row.enclosingMenuItem?.menu,
             let menuWindow = row.window
         else { return }
+
+        // A fast ⌘-click can leave a session whose mouse-up the menu's tracking
+        // loop ate before the session even started; that leftover must not
+        // block this drag (and must not keep its event monitors alive).
+        if let stale = dragSession {
+            AppLogger.info("NotchOverflow: clearing a stale rearrangement session")
+            stale.cancel()
+            dragSession = nil
+        }
 
         // The replica must draw every row where the user saw it. A naive list
         // would misplace them (the menu's headers and separators take vertical
@@ -450,14 +473,22 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             rows: menuRows,
             draggedIndex: row.rowIndex,
             menuFrame: menuWindow.frame,
-            rowRects: rowRects,
-            onFinish: { [weak self] draggedIndex, gap in
-                self?.dragSession = nil
-                self?.applyRearrangement(draggedIndex: draggedIndex, gap: gap)
-            },
-            onCancel: { [weak self] in
-                self?.dragSession = nil
-            })
+            rowRects: rowRects)
+        // Identity-checked so a superseded session's late events cannot move an
+        // item out from under the current one.
+        session.onFinish = { [weak self, weak session] draggedIndex, gap in
+            guard let self = self, let session = session, self.dragSession === session else {
+                return
+            }
+            self.dragSession = nil
+            self.applyRearrangement(draggedIndex: draggedIndex, gap: gap)
+        }
+        session.onCancel = { [weak self, weak session] in
+            guard let self = self, let session = session, self.dragSession === session else {
+                return
+            }
+            self.dragSession = nil
+        }
         dragSession = session
 
         menu.cancelTracking()

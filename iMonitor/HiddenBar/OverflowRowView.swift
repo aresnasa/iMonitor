@@ -3,10 +3,10 @@
 //  iMonitor
 //
 //  A row of the Notch Overflow menu, drawn as a custom item view instead of a
-//  plain NSMenuItem title. Two things need the real view: the app icon, which
-//  NSMenuItem.image renders garbled for the lazily-drawn images macOS returns
-//  from NSRunningApplication, and ⌘-drag delivery, which plain menu items
-//  never hand to their owner.
+//  plain NSMenuItem title. Three things need the real view: the app icon,
+//  which NSMenuItem.image renders garbled for the lazily-drawn images macOS
+//  returns from NSRunningApplication; the shown/not-shown eye marker; and
+//  ⌘-drag delivery, which plain menu items never hand to their owner.
 //
 
 import Cocoa
@@ -27,26 +27,43 @@ final class OverflowRowView: NSView {
 
     static let rowHeight: CGFloat = 24
     static let iconSize: CGFloat = 16
+    /// Width of the shown/not-shown eye slot every row reserves (see `drawRow`).
+    static let eyeSize: CGFloat = 13
     static let horizontalPadding: CGFloat = 8
-    static let iconTextSpacing: CGFloat = 8
+    static let iconEyeSpacing: CGFloat = 6
+    static let eyeTextSpacing: CGFloat = 6
 
     /// Width one row needs for `title`, so a build can give every row the same
     /// width and the menu sizes itself like a normal one.
     static func preferredWidth(forTitle title: String, hidden: Bool) -> CGFloat {
-        let textWidth = (displayTitle(title: title, hidden: hidden) as NSString)
+        let textWidth = (title as NSString)
             .size(withAttributes: [.font: font(hidden: hidden)]).width
-        return horizontalPadding + iconSize + iconTextSpacing + textWidth + horizontalPadding
+        return horizontalPadding + iconSize + iconEyeSpacing + eyeSize + eyeTextSpacing + textWidth
+            + horizontalPadding
     }
 
-    /// Hidden rows carry a glyph as well as bold weight: color alone is not an
-    /// accessible way to convey "hidden", and a warning tone reads poorly
-    /// against a dark selection highlight.
-    static func displayTitle(title: String, hidden: Bool) -> String {
-        hidden ? "\u{26A0}\u{FE0F} \(title)" : title
+    /// Title for the Accessibility tree. The eye marker says shown/not-shown on
+    /// screen, but Assistive clients cannot see it (nor is bold weight alone an
+    /// accessible signal), so hidden rows spell the state out in words.
+    static func accessibilityTitle(title: String, hidden: Bool) -> String {
+        hidden ? "\(title) (hidden)" : title
     }
 
     private static func font(hidden: Bool) -> NSFont {
         hidden ? .boldSystemFont(ofSize: 13) : .systemFont(ofSize: 13)
+    }
+
+    /// SF Symbols for the eye marker. Drawn as templates, so the current color
+    /// applies; a crossed-out eye marks the rows the bar is not showing.
+    private static let eyeImage = eyeSymbol("eye")
+    private static let eyeSlashImage = eyeSymbol("eye.slash")
+
+    private static func eyeSymbol(_ name: String) -> NSImage? {
+        let configuration = NSImage.SymbolConfiguration(pointSize: eyeSize - 1, weight: .regular)
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
+        image?.isTemplate = true
+        return image
     }
 
     init(rowIndex: Int, info: MenuBarExtraInfo, hidden: Bool, width: CGFloat) {
@@ -97,14 +114,33 @@ final class OverflowRowView: NSView {
                 hints: [.interpolation: NSImageInterpolation.high.rawValue])
         }
 
+        // Shown/not-shown marker: an eye in a fixed-width slot after the app
+        // icon, so every title starts at the same x. A crossed-out eye marks
+        // the rows the bar is not showing (they can still be activated here);
+        // the muted color matches their dimmed app icon.
+        let eyeRect = NSRect(
+            x: iconRect.maxX + iconEyeSpacing,
+            y: rect.midY - eyeSize / 2,
+            width: eyeSize, height: eyeSize)
+        if let eye = hidden ? eyeSlashImage : eyeImage {
+            let eyeColor: NSColor =
+                highlighted
+                ? .selectedMenuItemTextColor : (hidden ? .secondaryLabelColor : .labelColor)
+            eyeColor.set()
+            eye.draw(
+                in: eyeRect, from: .zero, operation: .sourceOver, fraction: 1.0,
+                respectFlipped: true,
+                hints: [.interpolation: NSImageInterpolation.high.rawValue])
+        }
+
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font(hidden: hidden),
             .foregroundColor: highlighted
                 ? NSColor.selectedMenuItemTextColor : NSColor.labelColor,
         ]
-        let textX = iconRect.maxX + iconTextSpacing
+        let textX = eyeRect.maxX + eyeTextSpacing
         let text = fitted(
-            displayTitle(title: title, hidden: hidden),
+            title,
             attributes: attributes,
             maxWidth: rect.maxX - horizontalPadding - textX)
         let size = (text as NSString).size(withAttributes: attributes)

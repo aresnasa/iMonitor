@@ -37,8 +37,15 @@ enum HiddenBarAssets {
     /// Shown while the hidden zone is visible: clicking hides it again.
     static let collapseImage = symbol("chevron.right")
 
-    /// The notch-overflow dropdown in the menu bar.
-    static let notchDropdownImage = symbol("chevron.up")
+    /// The notch-overflow dropdown while its list is closed: a pull-down
+    /// chevron, the standard "opens a menu" affordance. Deliberately a
+    /// different axis from the hide/show arrow's left/right chevrons, so the
+    /// two items that end up side by side do not read as duplicates.
+    static let notchDropdownImage = symbol("chevron.down")
+
+    /// The same dropdown while its list is on screen: the chevron turns back up
+    /// ("collect it again"); the caller swaps it back on close.
+    static let notchDropdownOpenImage = symbol("chevron.up")
 
     private static func symbol(_ name: String) -> NSImage? {
         let image = NSImage(systemSymbolName: name, accessibilityDescription: name)
