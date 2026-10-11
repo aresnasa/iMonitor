@@ -34,6 +34,7 @@
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
 		ACC1FCD8574F709E05431DF6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B50740B11D3815E58EA39639 /* Preview Assets.xcassets */; };
 		AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */; };
+		B0B0CA1BF0B0D17F639327C6 /* MenuBarArrangementStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */; };
 		B0C0DCA007148564B0050BFD /* HBNativeVisibilityShim.m in Sources */ = {isa = PBXBuildFile; fileRef = 59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */; };
 		B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6000C2555780235B42C5B3B /* SettingsView.swift */; };
 		BA546140676E413066A9B987 /* GlobalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */; };
@@ -63,6 +64,7 @@
 		28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalModel.swift; sourceTree = "<group>"; };
 		2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarEngineFactory.swift; sourceTree = "<group>"; };
 		3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityMenuBarInventory.swift; sourceTree = "<group>"; };
+		34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarArrangementStore.swift; sourceTree = "<group>"; };
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessEntity.swift; sourceTree = "<group>"; };
 		451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyLengthEngine.swift; sourceTree = "<group>"; };
@@ -196,6 +198,7 @@
 				22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */,
 				D73460F690D47754D7012AC3 /* HiddenBarController.swift */,
 				451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */,
+				34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */,
 				02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */,
 				2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */,
 				67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */,
@@ -294,6 +297,7 @@
 				095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */,
 				6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */,
 				6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */,
+				B0B0CA1BF0B0D17F639327C6 /* MenuBarArrangementStore.swift in Sources */,
 				CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */,
 				43256DBD1D14545B3D44BB7E /* MenuBarEngineFactory.swift in Sources */,
 				FC9FC6F180EE760A7D17045F /* MenuBarItemMover.swift in Sources */,
