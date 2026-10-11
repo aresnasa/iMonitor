@@ -37,6 +37,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var mouseGlobalMonitor: Any?
     private var mouseLocalMonitor: Any?
     private var mouseExitWorkItem: DispatchWorkItem?
+    // Set while the panel was opened without the mouse on it (from a menu-bar
+    // menu): the leave-to-close rule waits until the user has moved into the
+    // panel once, so it is not yanked away before they can reach it.
+    private var panelAwaitingMouseCustody = false
 
     static func quit() {
         AppLogger.info("iMonitor quitting")
@@ -221,7 +225,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Open the panel with the settings section showing (menu-bar menu entry).
     func showSettingsFromMenuBar() {
         if panel?.isVisible != true {
-            presentPanel()
+            // Opened from a menu: the mouse is not on the panel, so hold it
+            // open until the user has moved into it (see handleMouseCheck).
+            presentPanel(autoHidesOnMouseLeave: false)
         }
         NotificationCenter.default.post(name: ContentView.showSettingsNotification, object: nil)
     }
@@ -322,7 +328,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// The open half of the status-item click: activate, build and show the
     /// panel. Deliberately inspects no events, so menu actions can present it
     /// no matter which (possibly stale) event is current.
-    private func presentPanel() {
+    private func presentPanel(autoHidesOnMouseLeave: Bool = true) {
+        panelAwaitingMouseCustody = !autoHidesOnMouseLeave
+
         if #available(macOS 14.0, *) {
             NSApp.activate()
         } else {
@@ -361,6 +369,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         stopMouseMonitoring()
         panel.orderOut(self)
         globalModel.viewShowing = false
+        panelAwaitingMouseCustody = false
     }
 
     /// Build and pop up the status-bar context menu (gear menu).
@@ -709,9 +718,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if panelFrame.contains(mouseLoc) {
-            // Mouse is inside the panel — cancel any pending close
+            // Mouse is inside the panel — cancel any pending close; from now
+            // on the normal leave-to-close applies.
+            panelAwaitingMouseCustody = false
             mouseExitWorkItem?.cancel()
             mouseExitWorkItem = nil
+        } else if panelAwaitingMouseCustody {
+            // The panel was opened from a menu while the mouse was elsewhere;
+            // keep it until the user has reached it once (or closes it via the
+            // status item).
+            return
         } else {
             // Mouse is outside — schedule close with a small delay to avoid flicker
             if mouseExitWorkItem == nil {
