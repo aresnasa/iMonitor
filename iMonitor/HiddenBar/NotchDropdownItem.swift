@@ -71,9 +71,7 @@ final class NotchDropdownItem: NSObject {
     /// iMonitor's own menu-bar menu.
     func openOverflow() {
         NSApp.activate(ignoringOtherApps: true)
-        overflowController.showOverflowMenu(near: statusItem) {
-            HiddenBarAccessibility.presentHelp()
-        }
+        overflowController.showOverflowMenu(near: statusItem)
     }
 
     /// The popup can rearrange menu-bar icons by ⌘-dragging its rows, which

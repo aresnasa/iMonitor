@@ -24,27 +24,41 @@ cask "imonitor" do
           # 1. Strip extended attributes (removes quarantine flag)
           /usr/bin/xattr -cr "$app"
 
-          # 2. Re-sign nested frameworks / dylibs / bundles with ad-hoc identity.
-          #    Skip .bundle dirs that lack Info.plist (not real signable bundles).
-          for nested in "$app"/Contents/**/*.framework(N) "$app"/Contents/**/*.dylib(N); do
-            /usr/bin/codesign --force --sign - --timestamp=none "$nested"
-          done
-          for nested in "$app"/Contents/**/*.bundle(N); do
-            [[ -f "$nested/Info.plist" ]] || continue
-            /usr/bin/codesign --force --sign - --timestamp=none "$nested"
-          done
-
-          # 3. Re-sign the main app bundle with ad-hoc identity + entitlements.
-          #    The build-machine signature is invalidated when Homebrew copies the
-          #    .app; without re-signing macOS 14+ / Sequoia blocks the app.
-          ent="$app/Contents/Resources/iMonitor-adhoc.entitlements"
-          if [[ -f "$ent" ]]; then
-            /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ent" "$app"
+          # 2. Keep the release signature when it verifies. Releases are signed
+          #    with iMonitor's local "iMonitor Local Signing" certificate, and
+          #    macOS pins privacy grants (Accessibility in particular) to that
+          #    certificate - so the grant survives app updates. Re-signing
+          #    ad-hoc here would pin the grant to the per-build code hash
+          #    instead and silently drop it on every upgrade (the "already
+          #    granted but asked again" bug). Only re-sign when the signature
+          #    is broken, where ad-hoc is still better than nothing.
+          if /usr/bin/codesign --verify "$app" >/dev/null 2>&1; then
+            echo "iMonitor: existing signature verifies - keeping it"
           else
-            /usr/bin/codesign --force --sign - --timestamp=none "$app"
+            echo "iMonitor: signature did not verify - re-signing ad-hoc"
+
+            # Re-sign nested frameworks / dylibs / bundles with ad-hoc identity.
+            # Skip .bundle dirs that lack Info.plist (not real signable bundles).
+            for nested in "$app"/Contents/**/*.framework(N) "$app"/Contents/**/*.dylib(N); do
+              /usr/bin/codesign --force --sign - --timestamp=none "$nested"
+            done
+            for nested in "$app"/Contents/**/*.bundle(N); do
+              [[ -f "$nested/Info.plist" ]] || continue
+              /usr/bin/codesign --force --sign - --timestamp=none "$nested"
+            done
+
+            # Fallback only: historically Homebrew's copy could invalidate the
+            # build-machine signature, and without a valid signature macOS 14+ /
+            # Sequoia blocks the app.
+            ent="$app/Contents/Resources/iMonitor-adhoc.entitlements"
+            if [[ -f "$ent" ]]; then
+              /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ent" "$app"
+            else
+              /usr/bin/codesign --force --sign - --timestamp=none "$app"
+            fi
           fi
 
-          # 4. Touch the bundle so Launch Services picks up the new signature.
+          # 3. Touch the bundle so Launch Services picks up the signature.
           /usr/bin/touch "$app"
         SH
   end

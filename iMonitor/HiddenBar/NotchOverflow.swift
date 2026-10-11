@@ -193,11 +193,13 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     /// item's own action: the menu is only *shown* after an async snapshot, by
     /// which time the originating click has finished dispatching (never call
     /// performClick re-entrantly from within the button's own action).
-    func showOverflowMenu(near item: NSStatusItem, denied: (() -> Void)? = nil) {
+    func showOverflowMenu(near item: NSStatusItem) {
         guard Permission.isGranted else {
-            requestAuthorization()
+            // Prompt only while it can still help (first-time setup); once the
+            // user dealt with setup - or holds a grant for another build - the
+            // guided menu below explains the fix instead of re-prompting.
+            Permission.promptOnDemand()
             presentPermissionGuidedMenu(for: item)
-            denied?()
             return
         }
         let boundary = Self.currentBoundary().overflowThresholdX
@@ -218,11 +220,6 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                 item.menu = nil
             }
         }
-    }
-
-    // Keeps every entry point onto the same wording and deep link.
-    private func requestAuthorization() {
-        Permission.request()
     }
 
     // Looks exactly like the real overflow menu, but explains the permission
@@ -253,6 +250,14 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         Permission.openSystemSettings()
     }
 
+    // Stale-grant case: re-ask macOS so the running copy gets (back) into the
+    // Accessibility list - after the user removes the old entries this is what
+    // adds this build - and open the pane to do the removing.
+    @objc private func grantThisCopy(_ sender: NSMenuItem) {
+        Permission.request()
+        Permission.openSystemSettings()
+    }
+
     // MARK: - Menu Building
 
     /// - Parameter needsAccessibilityHelp: show the accessibility-permission section
@@ -280,15 +285,25 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
 
         if needsAccessibilityHelp {
-            let explanation = NSMenuItem(
-                title: "Grant Accessibility in System Settings to list the icons behind the notch.",
-                action: nil, keyEquivalent: "")
-            explanation.isEnabled = false
-            menu.addItem(explanation)
+            // Two states, two fixes: a first-time grant, or a grant held by an
+            // older build/copy (macOS pins grants to the exact app build).
+            let staleGrant = AppConfig.accessibilityGrantedOnce
+            menu.addItem(
+                makeHelpLabel(
+                    staleGrant
+                        ? "Accessibility is granted to another iMonitor build or copy."
+                        : "Grant Accessibility in System Settings to list the icons behind the notch."
+                ))
+            if staleGrant {
+                menu.addItem(
+                    makeHelpLabel("Remove the old iMonitor entries in System Settings first."))
+            }
 
             let grantItem = NSMenuItem(
-                title: "Open System Settings\u{2026}",
-                action: #selector(openAccessibilitySettings), keyEquivalent: "")
+                title: staleGrant ? "Grant This Copy\u{2026}" : "Open System Settings\u{2026}",
+                action: staleGrant
+                    ? #selector(grantThisCopy) : #selector(openAccessibilitySettings),
+                keyEquivalent: "")
             grantItem.target = self
             menu.addItem(grantItem)
             return menu
@@ -341,6 +356,13 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         }
 
         return menu
+    }
+
+    // Disabled, non-interactive explanation line for the permission section.
+    private func makeHelpLabel(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
     }
 
     // Disabled, non-interactive label. Bold + labelColor (full contrast) rather

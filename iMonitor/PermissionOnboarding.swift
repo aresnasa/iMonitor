@@ -74,6 +74,7 @@ final class PermissionOnboardingController: NSObject, NSWindowDelegate {
     /// walkthrough back so setup visibly completes instead of first looking
     /// like a no-op.
     private func grantDetected() {
+        AccessibilityPermission.rememberGrantIfTrusted()
         Self.activateApp()
         window?.makeKeyAndOrderFront(nil)
         onGranted?()

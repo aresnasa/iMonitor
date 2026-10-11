@@ -246,7 +246,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
                     // which is exactly what happens after the user grants the
                     // permission in System Settings and comes back.
                     self.isWaitingForAuthorization = true
-                    AccessibilityPermission.request()
+                    // Ask for the permission only while prompting can still help
+                    // (first-time setup, once per launch); otherwise the setup
+                    // paths in the gear menu and Settings own the guidance.
+                    AccessibilityPermission.promptOnDemand()
                 }
             }
         }
@@ -410,9 +413,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     }
 
     @objc private func showNotchOverflow() {
-        notchOverflowController.showOverflowMenu(near: toggleItem) {
-            HiddenBarAccessibility.presentHelp()
-        }
+        notchOverflowController.showOverflowMenu(near: toggleItem)
     }
 
     @objc private func toggleAutoHide() {

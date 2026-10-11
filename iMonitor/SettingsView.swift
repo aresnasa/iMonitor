@@ -160,7 +160,9 @@ struct MenuBarSettingsView: View {
                         Text(
                             accessibilityGranted
                                 ? "Accessibility permission granted."
-                                : "Accessibility permission required to list menu-bar icons."
+                                : AppConfig.accessibilityGrantedOnce
+                                    ? "Enabled for another iMonitor build - remove the old entries, then grant this copy."
+                                    : "Accessibility permission required to list menu-bar icons."
                         )
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)

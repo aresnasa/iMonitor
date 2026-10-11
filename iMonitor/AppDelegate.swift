@@ -74,6 +74,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.network.startListenNetwork()
         updateStatusBar()
+        // A grant that is already in place is remembered before the features
+        // start, so a later missing grant can be explained as "another
+        // build/copy holds it" instead of looking like a first run.
+        AccessibilityPermission.rememberGrantIfTrusted()
         startMenuBarFeaturesIfPossible()
 
         refreshTimer = Timer.scheduledTimer(
@@ -103,6 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_ notification: Notification) {
         NotificationCenter.default.post(
             name: AccessibilityPermission.mayHaveChangedNotification, object: nil)
+        AccessibilityPermission.rememberGrantIfTrusted()
         // The first launch holds the menu-bar features back until Accessibility
         // is granted; the user comes back from System Settings with it granted,
         // so start them now.
@@ -326,10 +331,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
 
         // Missing Accessibility: offer the walkthrough right where a user who
-        // noticed the menu-bar features doing nothing would look.
+        // noticed the menu-bar features doing nothing would look. When a grant
+        // existed before, it belongs to another build/copy, so the item turns
+        // into the targeted fix flow instead.
         if !AccessibilityPermission.isGranted {
             let setupItem = NSMenuItem(
-                title: "Accessibility Setup\u{2026}",
+                title: AppConfig.accessibilityGrantedOnce
+                    ? "Fix Accessibility Permission\u{2026}"
+                    : "Accessibility Setup\u{2026}",
                 action: #selector(showPermissionSetupFromMenu(_:)),
                 keyEquivalent: "")
             setupItem.target = self
@@ -376,7 +385,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showPermissionSetupFromMenu(_ sender: AnyObject?) {
-        presentPermissionOnboarding()
+        if AppConfig.accessibilityGrantedOnce, !AccessibilityPermission.isGranted {
+            // The old grant no longer applies to this build; the alert walks
+            // through removing the stale entries and re-adding this copy.
+            AccessibilityPermission.presentHelp()
+        } else {
+            presentPermissionOnboarding()
+        }
     }
 
     @objc private func quitFromMenu(_ sender: AnyObject?) {

@@ -54,6 +54,13 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "permissionOnboardingCompleted", default: false)
     static var permissionOnboardingCompleted: Bool
 
+    /// Whether this Mac granted Accessibility to iMonitor at least once. When a
+    /// grant later stops applying (a rebuild without the signing certificate,
+    /// or another copy), the help paths explain that stale-switch state instead
+    /// of showing first-run setup instructions again.
+    @UserDefaultsWrapper(key: "accessibilityGrantedOnce", default: false)
+    static var accessibilityGrantedOnce: Bool
+
     /// Posted after the settings pane changes any of the menu-bar options above.
     /// A notification rather than a setter, matching the mostly-static AppConfig.
     static let preferencesChangedNotification = Notification.Name("iMonitorPreferencesChanged")

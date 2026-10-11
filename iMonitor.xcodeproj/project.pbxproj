@@ -24,7 +24,6 @@
 		46C11B26025CA3667F353061 /* HiddenBarAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */; };
 		47317753BBB1D0935EE73079 /* SystemDataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F918A29C931619B1AFCE28C /* SystemDataModel.swift */; };
 		4E8D4BD634FE6EA26B3593EB /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5C1714B0FA7CF35930B27B5D /* Main.storyboard */; };
-		54A3225B537CA8214E0C96A1 /* HiddenBarAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */; };
 		5A1815D16384C124DD21C8BC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5138CFE282472B90031FD8A /* AppDelegate.swift */; };
 		6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */; };
 		6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */; };
@@ -96,7 +95,6 @@
 		BB059BE9CB31C6EA3E6CFFAE /* iMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandCollapseAction.swift; sourceTree = "<group>"; };
 		C6000C2555780235B42C5B3B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarAccessibility.swift; sourceTree = "<group>"; };
 		D73460F690D47754D7012AC3 /* HiddenBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarController.swift; sourceTree = "<group>"; };
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -197,7 +195,6 @@
 				C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */,
 				53555AE3C541B164F917C79A /* HBNativeVisibilityShim.h */,
 				59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */,
-				D49D952766C9354A8F35698F /* HiddenBarAccessibility.swift */,
 				22C3066AB6B538C5337525D5 /* HiddenBarAssets.swift */,
 				D73460F690D47754D7012AC3 /* HiddenBarController.swift */,
 				451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */,
@@ -294,7 +291,6 @@
 				17CFD01612513DE057781C5D /* ExpandCollapseAction.swift in Sources */,
 				BA546140676E413066A9B987 /* GlobalModel.swift in Sources */,
 				B0C0DCA007148564B0050BFD /* HBNativeVisibilityShim.m in Sources */,
-				54A3225B537CA8214E0C96A1 /* HiddenBarAccessibility.swift in Sources */,
 				46C11B26025CA3667F353061 /* HiddenBarAssets.swift in Sources */,
 				01C42F1088BE2058CF22A71B /* HiddenBarController.swift in Sources */,
 				095887D81F1E31D1970ED745 /* IpEntity.swift in Sources */,

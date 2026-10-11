@@ -18,20 +18,16 @@ import Cocoa
 final class AccessibilityMenuBarInventory: MenuBarInventoryProviding {
     private static let messagingTimeout: Float = 0.1
 
-    private var hasRequestedAuthorization = false
-
     var isAuthorized: Bool {
         return AXIsProcessTrusted()
     }
 
-    // Shows the system prompt once per launch; asking on every collapse would
-    // nag while the user is still in System Settings.
+    /// A feature just needed the permission and did not have it. Routed through
+    /// the shared on-demand prompt so the timing rules (first-time setup only,
+    /// at most once per launch) live in one place instead of being re-derived
+    /// here.
     func requestAuthorization() {
-        guard !hasRequestedAuthorization else { return }
-        hasRequestedAuthorization = true
-        let options =
-            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        AccessibilityPermission.promptOnDemand()
     }
 
     // Accessibility round-trips to every app take about a second in total, so the
