@@ -18,9 +18,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var contentView: ContentView!
     var network: Network!
     // Hidden Bar feature (ported from dwarvesf/hidden): the arrow/separator pair
-    // that hides menu-bar icons, and the notch-overflow dropdown.
+    // that hides menu-bar icons, and the menu-bar items dropdown (popped from
+    // the main icon - double-click or the menu entry - so it owns no status
+    // item and can be toggled live).
     var hiddenBarController: HiddenBarController?
-    var notchDropdownItem: NotchDropdownItem?
+    var menuBarOverflowController: NotchOverflowController?
     // First-launch Accessibility walkthrough. Non-nil only while its window is
     // open; set up on demand and dropped when the user is done.
     private var permissionOnboardingController: PermissionOnboardingController?
@@ -87,6 +89,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // build/copy holds it" instead of looking like a first run.
         AccessibilityPermission.rememberGrantIfTrusted()
         startMenuBarFeaturesIfPossible()
+        syncMenuBarOverflowController()
+        // The dropdown owns no status item, so its on/off toggle can apply
+        // live: keep the controller in step with the settings flag.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(overflowPreferencesChanged),
+            name: AppConfig.preferencesChangedNotification, object: nil)
 
         refreshTimer = Timer.scheduledTimer(
             withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true
@@ -172,27 +180,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if AppConfig.hideMenuBarEnabled {
             hiddenBarController = HiddenBarController()
         }
-        // With icon hiding on, the hidden-bar arrow itself opens the icon list,
-        // so one control both reaches and rearranges every hidden icon; the
-        // standalone chevron is only needed when hiding is off and no arrow
-        // exists to host the list.
-        if AppConfig.notchOverflowEnabled, hiddenBarController == nil {
-            let dropdown = NotchDropdownItem()
-            // The dropdown's rearrangement drags borrow the Hidden Bar engine:
-            // icons are only ⌘-draggable while the bar is expanded.
-            dropdown.configureRearrangement(
-                prepare: { [weak self] completion in
-                    guard let hiddenBar = self?.hiddenBarController else {
-                        completion(false)
-                        return
-                    }
-                    hiddenBar.temporarilyExpandForRearrangement(completion: completion)
-                },
-                collapse: { [weak self] expanded in
-                    self?.hiddenBarController?.restoreAfterRearrangement(expanded: expanded)
-                })
-            notchDropdownItem = dropdown
+    }
+
+    /// Keep the menu-bar items dropdown in step with its settings toggle.
+    /// Unlike the arrow/separator, the dropdown owns no status item - it pops
+    /// from the main icon on double-click or via the gear menu - so it can
+    /// appear and disappear live, without a restart.
+    private func syncMenuBarOverflowController() {
+        if AppConfig.notchOverflowEnabled {
+            guard menuBarOverflowController == nil else { return }
+            let controller = NotchOverflowController()
+            // Rearrangement drags borrow the Hidden Bar engine: icons are
+            // only ⌘-draggable while the bar is expanded.
+            controller.prepareForRearrangement = { [weak self] completion in
+                guard let hiddenBar = self?.hiddenBarController else {
+                    completion(false)
+                    return
+                }
+                hiddenBar.temporarilyExpandForRearrangement(completion: completion)
+            }
+            controller.collapseAfterRearrangement = { [weak self] expanded in
+                self?.hiddenBarController?.restoreAfterRearrangement(expanded: expanded)
+            }
+            menuBarOverflowController = controller
+        } else {
+            menuBarOverflowController = nil
         }
+    }
+
+    @objc private func overflowPreferencesChanged() {
+        syncMenuBarOverflowController()
     }
 
     /// Whether any of this app's windows is on screen. The auto-collapse timer
@@ -204,7 +221,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Open the panel with the settings section showing (menu-bar menu entry).
     func showSettingsFromMenuBar() {
         if panel?.isVisible != true {
-            togglePanel(nil)
+            presentPanel()
         }
         NotificationCenter.default.post(name: ContentView.showSettingsNotification, object: nil)
     }
@@ -279,6 +296,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Double-click opens the menu-bar items dropdown instead of the panel.
+        // The first click of the pair toggled the panel already; close it so
+        // the list replaces it rather than stacking.
+        if let event = NSApp.currentEvent, event.type == .leftMouseUp,
+            event.clickCount > 1
+        {
+            if panel?.isVisible == true {
+                closePanel()
+            }
+            showMenuBarItemsDropdown()
+            return
+        }
+
         updateStatusBar()
 
         if let panel = panel, panel.isVisible {
@@ -286,6 +316,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        presentPanel()
+    }
+
+    /// The open half of the status-item click: activate, build and show the
+    /// panel. Deliberately inspects no events, so menu actions can present it
+    /// no matter which (possibly stale) event is current.
+    private func presentPanel() {
         if #available(macOS 14.0, *) {
             NSApp.activate()
         } else {
@@ -369,12 +406,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Menu-bar dropdown: lists the icons (hidden ones included) and
         // activates them. Offered whenever the dropdown feature is enabled -
-        // hosted by the hidden-bar arrow when hiding is on, otherwise by the
-        // standalone chevron - and also as a backdoor when either item was
-        // removed via Control Center.
-        if AppConfig.notchOverflowEnabled,
-            notchDropdownItem != nil || hiddenBarController != nil
-        {
+        // it pops from this icon (double-click works too), and doubles as a
+        // backdoor when the hidden-bar arrow was removed via Control Center.
+        if AppConfig.notchOverflowEnabled, menuBarOverflowController != nil {
             let overflowItem = NSMenuItem(
                 title: "Show Menu-bar Items\u{2026}",
                 action: #selector(showNotchItemsFromMenu(_:)),
@@ -460,11 +494,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showNotchItemsFromMenu(_ sender: AnyObject?) {
-        if let dropdown = notchDropdownItem {
-            dropdown.openOverflow()
+        showMenuBarItemsDropdown()
+    }
+
+    /// The menu-bar items dropdown, popped from the main icon. Shared by the
+    /// gear menu's entry and the status item's double-click. Safe to call from
+    /// that button's own action: the list is only shown after an async
+    /// snapshot (see NotchOverflowController.showOverflowMenu).
+    func showMenuBarItemsDropdown() {
+        guard let controller = menuBarOverflowController else { return }
+        if #available(macOS 14.0, *) {
+            NSApp.activate()
         } else {
-            hiddenBarController?.openOverflowMenu()
+            NSApp.activate(ignoringOtherApps: true)
         }
+        controller.showOverflowMenu(near: statusBarItem)
     }
 
     @objc private func showPermissionSetupFromMenu(_ sender: AnyObject?) {
@@ -482,7 +526,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettingsFromMenu(_ sender: AnyObject?) {
-        showSettingsFromMenuBar()
+        // Menu actions fire while the menu's tracking loop is still unwinding
+        // (the gear menu itself pops from inside togglePanel's right-click
+        // branch); activating the app and making the panel key in that state
+        // does not stick. Let the loop unwind first.
+        DispatchQueue.main.async { [weak self] in
+            self?.showSettingsFromMenuBar()
+        }
     }
 
     @objc private func openAccessibilityPaneFromMenu(_ sender: AnyObject?) {

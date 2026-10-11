@@ -108,10 +108,11 @@ struct SettingsView: View {
     }
 }
 
-/// Menu-bar icon hiding (ported from Hidden Bar) and the notch-overflow
+/// Menu-bar icon hiding (ported from Hidden Bar) and the menu-bar items
 /// dropdown. `@AppStorage` persists straight to `UserDefaults`; the
-/// notification lets the live controller re-read the auto-collapse settings,
-/// while toggles that structure the menu bar ask for a restart.
+/// notification lets the live controller re-read the auto-collapse settings
+/// and the dropdown controller appear/disappear live, while toggles that
+/// structure the menu bar ask for a restart.
 struct MenuBarSettingsView: View {
     @AppStorage("hideMenuBarEnabled") private var hideEnabled = true
     @AppStorage("hideAutoCollapseEnabled") private var autoCollapseEnabled = true
@@ -212,7 +213,7 @@ struct MenuBarSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            Toggle("Menu-bar dropdown (chevron icon)", isOn: $notchEnabled)
+            Toggle("Menu-bar items dropdown (double-click the iMonitor icon)", isOn: $notchEnabled)
                 .font(.system(size: 11))
 
             if notchEnabled {
@@ -233,9 +234,9 @@ struct MenuBarSettingsView: View {
                 }
             }
 
-            if #available(macOS 26.0, *), hideEnabled || notchEnabled {
+            if #available(macOS 26.0, *), hideEnabled {
                 Text(
-                    "If the arrow or chevron does not appear, enable the iMonitor items in System Settings › Control Center › Menu Bar."
+                    "If the arrow does not appear, enable the iMonitor items in System Settings › Control Center › Menu Bar."
                 )
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
@@ -255,7 +256,8 @@ struct MenuBarSettingsView: View {
         .toggleStyle(.switch)
         .controlSize(.small)
         .onChange(of: hideEnabled) { _ in needsRestart() }
-        .onChange(of: notchEnabled) { _ in needsRestart() }
+        // The dropdown owns no status item, so it appears/disappears live.
+        .onChange(of: notchEnabled) { _ in AppConfig.notifyPreferencesChanged() }
         .onChange(of: autoCollapseEnabled) { _ in AppConfig.notifyPreferencesChanged() }
         .onChange(of: autoCollapseSeconds) { _ in AppConfig.notifyPreferencesChanged() }
         .onReceive(

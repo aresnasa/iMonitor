@@ -41,7 +41,6 @@
 		BC66E4477878D921106D122C /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598007F9E4673ED0913AC8F2 /* AppConfig.swift */; };
 		BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */; };
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
-		BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */; };
 		C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
 		C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */; };
@@ -99,7 +98,6 @@
 		D9D6E8E44BE44F7490A7572D /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		E5138CFE282472B90031FD8A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E7B6A14EA4C47CCA67F0795B /* Network.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Network.swift; sourceTree = "<group>"; };
-		F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchDropdownItem.swift; sourceTree = "<group>"; };
 		FC384FC1089FC41B02040979 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -205,7 +203,6 @@
 				6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */,
 				4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */,
 				83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */,
-				F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */,
 				7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */,
 				5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */,
 				8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */,
@@ -330,7 +327,6 @@
 				F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */,
 				BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */,
 				45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */,
-				BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */,
 				FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */,
 				AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */,
 				C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */,
