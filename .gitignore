@@ -95,6 +95,9 @@ iOSInjectionProject/
 
 /.idea
 
+# Claude Code
+.claude/
+
 # Build output
 build/
 *.dmg
