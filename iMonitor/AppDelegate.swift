@@ -94,7 +94,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Fired after the user comes back from System Settings (usually to grant
+    /// Accessibility). Broadcasts so the menu-bar components re-read the permission.
+    func applicationDidBecomeActive(_ notification: Notification) {
+        NotificationCenter.default.post(
+            name: AccessibilityPermission.mayHaveChangedNotification, object: nil)
+    }
+
     // MARK: - Hidden Bar features (ported from dwarvesf/hidden)
+
+    /// Open System Settings straight to the Accessibility list. Used by the
+    /// Hidden Bar context menu.
+    func openAccessibilitySettingsPane() {
+        AccessibilityPermission.openSystemSettings()
+    }
 
     private func setupHiddenBarFeatures() {
         AppLogger.info(

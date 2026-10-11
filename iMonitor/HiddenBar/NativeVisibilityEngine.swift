@@ -75,7 +75,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
         case .expanded, .unavailable:
             break
         }
-        setSeparatorsVisible(true)
+        setItemsHidden(false)
 
         guard visibility.isAvailable else {
             logUnavailableOnce(
@@ -100,11 +100,23 @@ final class NativeVisibilityEngine: MenuBarEngine {
                 self.state = .expanded
                 return completion(.unavailable)
             }
+            let hidden = layout.bundles(in: [.hidden])
+            guard !hidden.isEmpty else {
+                // Nothing sits to the arrow's hidden side yet. Reporting success
+                // here would flip the arrow and claim the bar is hidden while it
+                // is untouched - exactly the "the toggle does nothing" symptom.
+                // Stay expanded and say what to do instead.
+                self.state = .expanded
+                self.logUnavailableOnce(
+                    "nothing to hide yet: \u{2318}-drag other menu-bar icons across the arrow "
+                        + "so they sit on its hidden side, then collapse again")
+                return completion(.unavailable)
+            }
             self.activate(allowing: layout.bundles(in: [.visible])) { [weak self] succeeded in
                 guard let self = self else { return }
                 self.state = succeeded ? .collapsed : .expanded
                 if succeeded {
-                    self.setSeparatorsVisible(false)
+                    self.setItemsHidden(true)
                 }
                 completion(succeeded ? .collapsed : .unavailable)
             }
@@ -112,9 +124,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
     }
 
     func expand() {
-        setSeparatorsVisible(true)
         state = .expanded
         releaseAssertion()
+        setItemsHidden(false)
     }
 
     // Native hiding does not depend on display geometry, so only drop the cached
@@ -181,9 +193,13 @@ final class NativeVisibilityEngine: MenuBarEngine {
         }
     }
 
-    // The separator goes off the bar entirely under native hiding.
-    private func setSeparatorsVisible(_ visible: Bool) {
-        items?.separatorItem.isVisible = visible
+    // Mirrors the engine's hiding state onto what the bar shows for this
+    // feature: while hidden, the separator goes off the bar entirely (native
+    // hiding does not use it) and the arrow's context menu offers help while
+    // Accessibility is missing. Restoring flips both back.
+    private func setItemsHidden(_ hidden: Bool) {
+        // The separator goes off the bar entirely under native hiding.
+        items?.separatorItem.isVisible = !hidden
     }
 
     // Any arrangement works: whatever sits left of the arrow is the hidden section.

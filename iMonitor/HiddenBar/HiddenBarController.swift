@@ -30,7 +30,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private var isToggle = false
     private var hoverMonitor: Any?
     private var hoverDwellTimer: Timer?
-    private var didPromptForAccessibility = false
+    // Set when the user asked for a state change that stalled on the missing
+    // Accessibility permission; the matching applicationDidBecomeActive retries it.
+    private var isWaitingForAuthorization = false
 
     // Set while a menu that this feature spawned is on screen, so the
     // auto-collapse timer can defer instead of closing the menu under the user.
@@ -49,6 +51,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handlePreferencesChanged),
             name: AppConfig.preferencesChangedNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleApplicationDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil)
 
         // Collapse shortly after launch, mirroring Hidden Bar: the hidden zone is
         // hidden until the user asks for it. Deferred so the bar has settled: the
@@ -223,31 +228,32 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
                 self.didCollapseMenuBar()
             case .unavailable:
                 self.didFailToCollapseMenuBar()
-                self.promptAccessibilityOnceIfNeeded()
+                if !AccessibilityPermission.isGranted {
+                    // Remember that a later applicationDidBecomeActive should retry,
+                    // which is exactly what happens after the user grants the
+                    // permission in System Settings and comes back.
+                    self.isWaitingForAuthorization = true
+                    AccessibilityPermission.request()
+                }
             }
         }
     }
 
-    // The native engine needs Accessibility to read the bar's arrangement. The
-    // first failed collapse triggers the system prompt (once per launch); macOS
-    // remembers the grant, so it is a one-time setup.
-    private func promptAccessibilityOnceIfNeeded() {
-        guard !didPromptForAccessibility else { return }
-        didPromptForAccessibility = true
-        // Returns true immediately when already trusted, so this is safe to call
-        // unconditionally; when not trusted it shows the system "grant access"
-        // dialog and deep-links into the right settings pane.
-        let options =
-            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-    }
-
-    // Nothing was hidden (the engine cannot hide on this system, or is waiting
-    // for a permission), so show the bar as expanded.
+    // Nothing was hidden (the engine cannot hide on this system, the bar has no
+    // hidden section yet, or a permission is pending), so show the bar as
+    // expanded.
     private func didFailToCollapseMenuBar() {
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
         }
+    }
+
+    // The app came back to the foreground (usually straight from System Settings
+    // › Accessibility). Re-attempt the collapse the user had asked for.
+    @objc private func handleApplicationDidBecomeActive() {
+        guard isWaitingForAuthorization, AccessibilityPermission.isGranted else { return }
+        isWaitingForAuthorization = false
+        collapseIfPossible()
     }
 
     private func didCollapseMenuBar() {
@@ -344,6 +350,15 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         prefItem.target = self
         menu.addItem(prefItem)
 
+        // Same deep link the permission prompt uses, so a user who denied the
+        // permission can always get back to the exact pane.
+        let accessibilityItem = NSMenuItem(
+            title: "Accessibility Settings\u{2026}",
+            action: #selector(openAccessibilitySettings),
+            keyEquivalent: "")
+        accessibilityItem.target = self
+        menu.addItem(accessibilityItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(
@@ -373,6 +388,14 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     @objc private func openSettings() {
         guard let delegate = NSApp.delegate as? AppDelegate else { return }
         delegate.showSettingsFromMenuBar()
+    }
+
+    @objc private func openAccessibilitySettings() {
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.openAccessibilitySettingsPane()
+        } else {
+            AccessibilityPermission.openSystemSettings()
+        }
     }
 
     @objc private func quit() {

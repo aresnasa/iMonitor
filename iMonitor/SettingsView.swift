@@ -119,6 +119,10 @@ struct MenuBarSettingsView: View {
     @AppStorage("hideHoverToExpandEnabled") private var hoverToExpand = false
     @AppStorage("notchOverflowEnabled") private var notchEnabled = true
 
+    // Only meaningful while Accessibility is missing; refreshed whenever the app
+    // returns to the foreground (System Settings visits included).
+    @State private var accessibilityGranted = AccessibilityPermission.isGranted
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Menu Bar")
@@ -143,13 +147,42 @@ struct MenuBarSettingsView: View {
                     }
                     Toggle("Expand on hover", isOn: $hoverToExpand)
                         .font(.system(size: 11))
+
+                    // Both features below silently do nothing without this
+                    // permission, so surface it right where they are configured.
+                    HStack(spacing: 6) {
+                        Image(
+                            systemName: accessibilityGranted
+                                ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                        )
+                        .font(.system(size: 10))
+                        .foregroundStyle(accessibilityGranted ? .green : .orange)
+                        Text(
+                            accessibilityGranted
+                                ? "Accessibility permission granted."
+                                : "Accessibility permission required to list menu-bar icons."
+                        )
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        Spacer()
+                        if !accessibilityGranted {
+                            Button("Grant\u{2026}") {
+                                AccessibilityPermission.request()
+                                AccessibilityPermission.openSystemSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
                 }
                 .padding(.leading, 4)
 
-                Text("⌘-drag the | separator in the menu bar to choose which icons get hidden.")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(
+                    "The arrow's slot is the hiding boundary: position it just to the left "
+                        + "of the icons you want hidden."
+                )
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             }
 
             Toggle("Notch dropdown (icons behind the camera notch)", isOn: $notchEnabled)
@@ -177,6 +210,12 @@ struct MenuBarSettingsView: View {
         .onChange(of: notchEnabled) { _ in needsRestart() }
         .onChange(of: autoCollapseEnabled) { _ in AppConfig.notifyPreferencesChanged() }
         .onChange(of: autoCollapseSeconds) { _ in AppConfig.notifyPreferencesChanged() }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: AccessibilityPermission.mayHaveChangedNotification)
+        ) { _ in
+            accessibilityGranted = AccessibilityPermission.isGranted
+        }
     }
 
     // Toggles that change which items exist in the menu bar only apply at launch.

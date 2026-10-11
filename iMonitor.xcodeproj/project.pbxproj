@@ -29,6 +29,7 @@
 		6D6D21351E3738CD01740E1C /* LegacyLengthEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */; };
 		719D7862E4C1A5D998A134A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0330B7177E5F80F52A4E65CC /* Assets.xcassets */; };
 		7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */; };
+		9C74D6F8A715F277D7A40334 /* AccessibilityPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */; };
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
 		ACC1FCD8574F709E05431DF6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B50740B11D3815E58EA39639 /* Preview Assets.xcassets */; };
@@ -80,6 +81,7 @@
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		B50740B11D3815E58EA39639 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
 		B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarIconView.swift; sourceTree = "<group>"; };
 		BB059BE9CB31C6EA3E6CFFAE /* iMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandCollapseAction.swift; sourceTree = "<group>"; };
@@ -180,6 +182,7 @@
 			isa = PBXGroup;
 			children = (
 				3352F5320BB27230F5CD9AA6 /* AccessibilityMenuBarInventory.swift */,
+				B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */,
 				C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */,
 				53555AE3C541B164F917C79A /* HBNativeVisibilityShim.h */,
 				59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */,
@@ -268,6 +271,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0BB90F1AFF832A2DA6C8C971 /* AccessibilityMenuBarInventory.swift in Sources */,
+				9C74D6F8A715F277D7A40334 /* AccessibilityPermission.swift in Sources */,
 				BC66E4477878D921106D122C /* AppConfig.swift in Sources */,
 				5A1815D16384C124DD21C8BC /* AppDelegate.swift in Sources */,
 				3DA070CC76C2C79EA3E2FE93 /* AppLogger.swift in Sources */,

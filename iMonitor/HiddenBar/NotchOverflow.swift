@@ -91,6 +91,21 @@ enum MenuBarExtraClassifier {
 
 class NotchOverflowController: NSObject {
 
+    /// The status item whose menu is waiting on the Accessibility grant, so the
+    /// menu can be re-opened the moment the user returns from System Settings.
+    private weak var itemAwaitingPermission: NSStatusItem?
+
+    override init() {
+        super.init()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleAccessibilityMayHaveChanged),
+            name: AccessibilityPermission.mayHaveChangedNotification, object: nil)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Notch Detection
 
     // The notched display, if any is attached and awake. A notched Mac drives
@@ -122,7 +137,9 @@ class NotchOverflowController: NSObject {
     /// which time the originating click has finished dispatching (never call
     /// performClick re-entrantly from within the button's own action).
     func showOverflowMenu(near item: NSStatusItem, denied: (() -> Void)? = nil) {
-        guard ensureAccessibility() else {
+        guard Permission.isGranted else {
+            requestAuthorization()
+            presentPermissionGuidedMenu(for: item)
             denied?()
             return
         }
@@ -142,11 +159,46 @@ class NotchOverflowController: NSObject {
         }
     }
 
+    // Keeps every entry point onto the same wording and deep link.
+    private func requestAuthorization() {
+        Permission.request()
+    }
+
+    // Looks exactly like the real overflow menu, but explains the permission
+    // instead of leaving the user with "No items found".
+    private func presentPermissionGuidedMenu(for item: NSStatusItem) {
+        itemAwaitingPermission = item
+        item.menu = buildOverflowMenu(needsAccessibilityHelp: true)
+        item.button?.performClick(nil)
+        DispatchQueue.main.async {
+            item.menu = nil
+        }
+    }
+
+    // Re-open the live menu once the user comes back from System Settings with
+    // the permission granted, so granting does not first look like a no-op.
+    @objc private func handleAccessibilityMayHaveChanged() {
+        guard Permission.isGranted else { return }
+        guard let item = itemAwaitingPermission else { return }
+        itemAwaitingPermission = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.showOverflowMenu(near: item)
+        }
+    }
+
+    @objc private func openAccessibilitySettings(_ sender: NSMenuItem) {
+        Permission.openSystemSettings()
+    }
+
     // MARK: - Menu Building
 
+    /// - Parameter needsAccessibilityHelp: show the accessibility-permission section
+    ///   (and no live extras) when Accessibility is not granted. Without it the menu
+    ///   would just read "No items found", which looks like a plain bug.
     func buildOverflowMenu(
         extras: [MenuBarExtraInfo]? = nil,
-        boundary: CGFloat? = nil
+        boundary: CGFloat? = nil,
+        needsAccessibilityHelp: Bool = false
     ) -> NSMenu {
         let allExtras = extras ?? []
         let resolvedBoundary = boundary ?? Self.currentBoundary().overflowThresholdX
@@ -159,6 +211,21 @@ class NotchOverflowController: NSObject {
         // Title
         menu.addItem(makeSectionHeader(title: "Notch Overflow", fontSize: 12))
         menu.addItem(NSMenuItem.separator())
+
+        if needsAccessibilityHelp {
+            let explanation = NSMenuItem(
+                title: "Grant Accessibility in System Settings to list the icons behind the notch.",
+                action: nil, keyEquivalent: "")
+            explanation.isEnabled = false
+            menu.addItem(explanation)
+
+            let grantItem = NSMenuItem(
+                title: "Open System Settings\u{2026}",
+                action: #selector(openAccessibilitySettings), keyEquivalent: "")
+            grantItem.target = self
+            menu.addItem(grantItem)
+            return menu
+        }
 
         // Hidden section
         if !hiddenExtras.isEmpty {
@@ -246,12 +313,7 @@ class NotchOverflowController: NSObject {
 
     // MARK: - Accessibility
 
-    private func ensureAccessibility() -> Bool {
-        if AXIsProcessTrusted() { return true }
-        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        AXIsProcessTrustedWithOptions(opts)
-        return false
-    }
+    private typealias Permission = AccessibilityPermission
 
     // MARK: - AX Enumeration
 
