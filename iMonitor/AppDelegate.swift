@@ -58,6 +58,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Width: bars(4*3+2*2=16) + gap(4) + net text(~48)
         self.statusBarItem = NSStatusBar.system.statusItem(withLength: 68)
+        // The stats icon is half of iMonitor's entire UI, so it gets the same
+        // permanence as the chevron and the Hidden Bar arrow: an autosave name
+        // gives macOS's menu-bar management (System Settings › Control Center)
+        // a stable identity instead of the positional "Item-0", and forcing
+        // visibility at every launch self-heals an accidental ⌘-drag removal or
+        // Control Center toggle.
+        self.statusBarItem.autosaveName = "imonitor_stats"
+        self.statusBarItem.isVisible = true
 
         if let button = self.statusBarItem.button {
             button.action = #selector(togglePanel(_:))
