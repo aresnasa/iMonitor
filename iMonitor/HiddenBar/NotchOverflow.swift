@@ -70,30 +70,79 @@ enum NotchGeometry {
 /// from AX enumeration so the sorting/filtering rules are testable without
 /// a live Accessibility permission or other running apps.
 enum MenuBarExtraClassifier {
+    /// Two items whose frames overlap by more than this are treated as crammed
+    /// into the same slot. Items that merely touch measure as 1–3pt of overlap
+    /// because of AX rounding, so that noise is ignored.
+    static let overlapTolerance: CGFloat = 4
+
     static func classify(
         _ extras: [MenuBarExtraInfo],
         boundary: CGFloat
     ) -> (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) {
         let renderable = extras.filter { $0.size.width > 0 && $0.size.height > 0 }
-        let hidden =
-            renderable
-            .filter { $0.position.x < boundary }
-            .sorted { $0.position.x > $1.position.x }
-        let visible =
-            renderable
-            .filter { $0.position.x >= boundary }
-            .sorted { $0.position.x > $1.position.x }
-        return (hidden, visible)
+        let sorted = renderable.sorted { $0.position.x < $1.position.x }
+
+        // Items count as "hidden behind the notch" when the system renders them
+        // out of reach, which happens in two ways:
+        //  1. They sit left of the notch's clear zone (x < boundary): macOS
+        //     parks overflow entries over there.
+        //  2. They are squeezed against the notch's right edge until their
+        //     slots overlap into one pile of indistinguishable, unclickable
+        //     icons. A calm bar never overlaps its items, so an overlapping
+        //     run is exactly the set the user lost.
+        var isHidden = [Bool](repeating: false, count: sorted.count)
+        for i in sorted.indices where sorted[i].position.x < boundary {
+            isHidden[i] = true
+        }
+        var i = 0
+        while i < sorted.count {
+            var runEnd = sorted[i].position.x + sorted[i].size.width
+            var j = i + 1
+            while j < sorted.count, sorted[j].position.x + Self.overlapTolerance < runEnd {
+                runEnd = max(runEnd, sorted[j].position.x + sorted[j].size.width)
+                j += 1
+            }
+            if j > i + 1 {
+                for k in i..<j { isHidden[k] = true }
+                i = j
+            } else {
+                i += 1
+            }
+        }
+
+        var hidden: [MenuBarExtraInfo] = []
+        var visible: [MenuBarExtraInfo] = []
+        for (index, item) in sorted.enumerated() {
+            if isHidden[index] { hidden.append(item) } else { visible.append(item) }
+        }
+        return (
+            hidden.sorted { $0.position.x > $1.position.x },
+            visible.sorted { $0.position.x > $1.position.x }
+        )
     }
 }
 
 // MARK: - NotchOverflowController
 
-class NotchOverflowController: NSObject {
+class NotchOverflowController: NSObject, NSMenuDelegate {
 
     /// The status item whose menu is waiting on the Accessibility grant, so the
     /// menu can be re-opened the moment the user returns from System Settings.
     private weak var itemAwaitingPermission: NSStatusItem?
+
+    /// Rearrangement hooks, filled in by whoever owns the Hidden Bar engine: a
+    /// status item can only be ⌘-dragged while the bar shows it, so a collapsed
+    /// bar is expanded for the duration of a move and re-collapsed after.
+    var prepareForRearrangement: (@escaping (Bool) -> Void) -> Void = { $0(false) }
+    var collapseAfterRearrangement: (Bool) -> Void = { _ in }
+
+    private var dragSession: OverflowDragSession?
+    /// The reorderable rows of the menu last built, in display order.
+    private var menuRows: [OverflowDragSession.Row] = []
+    private var lastHighlightedMenuItem: NSMenuItem?
+    /// Guards against one click reaching both the row view and the item action,
+    /// which would press a status item twice.
+    private var lastActivation: (element: AXUIElement, time: TimeInterval)?
 
     override init() {
         super.init()
@@ -207,6 +256,7 @@ class NotchOverflowController: NSObject {
 
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.delegate = self
 
         // Title
         menu.addItem(makeSectionHeader(title: "Notch Overflow", fontSize: 12))
@@ -227,13 +277,26 @@ class NotchOverflowController: NSObject {
             return menu
         }
 
+        // The reorderable rows, in display order; shared with the drag session
+        // so a ⌘-drag can map a drop position back onto these items.
+        menuRows =
+            hiddenExtras.map { row(for: $0, hidden: true) }
+            + visibleExtras.map { row(for: $0, hidden: false) }
+        let rowWidth = Self.rowWidth(for: menuRows)
+
+        // Discoverability: rows support a gesture that nothing else advertises.
+        if !menuRows.isEmpty {
+            menu.addItem(makeHintItem())
+        }
+
         // Hidden section
         if !hiddenExtras.isEmpty {
             menu.addItem(makeSectionHeader(title: "Hidden Behind Notch (\(hiddenExtras.count))"))
             menu.addItem(NSMenuItem.separator())
 
-            for info in hiddenExtras {
-                menu.addItem(makeMenuItem(for: info, hidden: true))
+            for (index, info) in hiddenExtras.enumerated() {
+                menu.addItem(
+                    makeMenuItem(for: info, hidden: true, rowIndex: index, width: rowWidth))
             }
         }
 
@@ -243,8 +306,11 @@ class NotchOverflowController: NSObject {
             menu.addItem(makeSectionHeader(title: "Visible (\(visibleExtras.count))"))
             menu.addItem(NSMenuItem.separator())
 
-            for info in visibleExtras {
-                menu.addItem(makeMenuItem(for: info, hidden: false))
+            for (index, info) in visibleExtras.enumerated() {
+                menu.addItem(
+                    makeMenuItem(
+                        for: info, hidden: false,
+                        rowIndex: hiddenExtras.count + index, width: rowWidth))
             }
         }
 
@@ -275,40 +341,174 @@ class NotchOverflowController: NSObject {
         return item
     }
 
-    private func makeMenuItem(for info: MenuBarExtraInfo, hidden: Bool = false) -> NSMenuItem {
+    private func makeMenuItem(
+        for info: MenuBarExtraInfo, hidden: Bool = false, rowIndex: Int = 0, width: CGFloat = 240
+    ) -> NSMenuItem {
         let item = NSMenuItem()
-        let displayTitle = (info.title?.isEmpty == false) ? info.title! : info.appName
+        let title = (info.title?.isEmpty == false) ? info.title! : info.appName
+        // Kept for Accessibility even though the row view paints the visible
+        // content: Assistive clients read the item's title.
+        item.title = OverflowRowView.displayTitle(title: title, hidden: hidden)
 
-        if hidden {
-            // Color alone isn't an accessible way to convey "hidden" (colorblind
-            // users get nothing from it, and systemOrange reads poorly against a
-            // dark selection highlight). A glyph + bold weight works in any theme.
-            item.attributedTitle = NSAttributedString(
-                string: "\u{26A0}\u{FE0F} \(displayTitle)",
-                attributes: [
-                    .font: NSFont.boldSystemFont(ofSize: 13),
-                    .foregroundColor: NSColor.labelColor,
-                ])
-        } else {
-            item.title = displayTitle
-        }
+        let row = OverflowRowView(rowIndex: rowIndex, info: info, hidden: hidden, width: width)
+        row.onCommandDrag = { [weak self] row in self?.beginRearrangeDrag(row) }
+        row.onActivate = { [weak self] info in self?.activateRow(info) }
+        item.view = row
 
-        if let icon = info.appIcon {
-            item.image = hidden ? icon.resizedForMenu(tinted: true) : icon.resizedForMenu()
-        }
         item.representedObject = info
         item.target = self
         item.action = #selector(activateItem(_:))
         return item
     }
 
+    private func row(for info: MenuBarExtraInfo, hidden: Bool) -> OverflowDragSession.Row {
+        let title = (info.title?.isEmpty == false) ? info.title! : info.appName
+        return OverflowDragSession.Row(info: info, title: title, isHiddenRow: hidden)
+    }
+
+    /// One width for every row view, from the widest title, so the menu sizes
+    /// itself like a normal menu instead of one lumpy column.
+    private static let rearrangementHint =
+        "Hold \u{2318} and drag an icon to rearrange the menu bar"
+
+    private static func rowWidth(for rows: [OverflowDragSession.Row]) -> CGFloat {
+        let widestRow =
+            rows.map { OverflowRowView.preferredWidth(forTitle: $0.title, hidden: $0.isHiddenRow) }
+            .max() ?? 230
+        let hint =
+            (rearrangementHint as NSString)
+            .size(withAttributes: [.font: NSFont.systemFont(ofSize: 11)]).width + 28
+        return min(max(max(widestRow + 16, hint), 230), 420)
+    }
+
+    // Muted line teaching the ⌘-drag gesture the row views cannot advertise.
+    private func makeHintItem() -> NSMenuItem {
+        let item = NSMenuItem(title: Self.rearrangementHint, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        item.attributedTitle = NSAttributedString(
+            string: Self.rearrangementHint,
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 11),
+                .foregroundColor: NSColor.secondaryLabelColor,
+            ])
+        return item
+    }
+
     @objc private func activateItem(_ sender: NSMenuItem) {
         guard let info = sender.representedObject as? MenuBarExtraInfo else { return }
+        pressExtra(info)
+    }
+
+    /// A click on a custom row view never runs the item action, so the view
+    /// calls this instead; the wait lets the popup close first, or the pressed
+    /// item's own menu would open behind ours.
+    private func activateRow(_ info: MenuBarExtraInfo) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.pressExtra(info)
+        }
+    }
+
+    /// Press the item's real menu-bar element through Accessibility.
+    private func pressExtra(_ info: MenuBarExtraInfo) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last = lastActivation, CFEqual(last.element, info.element), now - last.time < 0.5 {
+            // One click can arrive through both the row view and the item
+            // action; never press the same element twice.
+            return
+        }
+        lastActivation = (info.element, now)
+
         let result = AXUIElementPerformAction(info.element, kAXPressAction as CFString)
         if result != .success {
             AppLogger.warn(
                 "NotchOverflow: could not press \(info.appName) item (AX error \(result.rawValue))")
         }
+    }
+
+    // MARK: - Rearrangement (⌘-drag)
+
+    /// A ⌘-click on a row starts a reordering drag. The menu cannot stay up for
+    /// it: AppKit owns the menu's tracking loop, and the drag needs a normal
+    /// event stream, so the menu is closed and replaced by a transparent
+    /// replica (OverflowDragSession) tracking the mouse. The drop is then
+    /// applied to the real bar by MenuBarItemMover.
+    private func beginRearrangeDrag(_ row: OverflowRowView) {
+        guard dragSession == nil, menuRows.count > 1,
+            let menu = row.enclosingMenuItem?.menu,
+            let menuWindow = row.window
+        else { return }
+
+        // The replica must draw every row where the user saw it. A naive list
+        // would misplace them (the menu's headers and separators take vertical
+        // space), and a drop one row off is exactly the bug this avoids.
+        let rowRects: [NSRect] = menu.items.compactMap { item in
+            guard let view = item.view else { return nil }
+            return menuWindow.convertToScreen(view.convert(view.bounds, to: nil))
+        }
+
+        let session = OverflowDragSession(
+            rows: menuRows,
+            draggedIndex: row.rowIndex,
+            menuFrame: menuWindow.frame,
+            rowRects: rowRects,
+            onFinish: { [weak self] draggedIndex, gap in
+                self?.dragSession = nil
+                self?.applyRearrangement(draggedIndex: draggedIndex, gap: gap)
+            },
+            onCancel: { [weak self] in
+                self?.dragSession = nil
+            })
+        dragSession = session
+
+        menu.cancelTracking()
+        // The tracking loop must unwind before the replica appears, or its
+        // window would be torn down after ours is already up.
+        DispatchQueue.main.async {
+            session.start()
+        }
+    }
+
+    /// `gap` is a position among the menu's rows (0...count) with the dragged
+    /// row's own slot counted in place. Translate it into the drop target: the
+    /// row the dragged one should end up just above in the list, which is the
+    /// row whose slot it takes on the bar (that is exactly what a ⌘-drag does
+    /// when released over an icon).
+    private func applyRearrangement(draggedIndex: Int, gap: Int) {
+        let rows = menuRows
+        guard rows.indices.contains(draggedIndex) else { return }
+
+        let insertIndex = gap > draggedIndex ? gap - 1 : gap
+        guard insertIndex != draggedIndex else { return }  // dropped back in place
+
+        var remaining = rows
+        let source = remaining.remove(at: draggedIndex)
+        guard !remaining.isEmpty else { return }
+        let target = remaining[min(insertIndex, remaining.count - 1)]
+
+        AppLogger.info(
+            "NotchOverflow: rearranging \(source.info.appName) \u{2192} \(target.info.appName)")
+
+        prepareForRearrangement { [weak self] expanded in
+            MenuBarItemMover.move(
+                source: source.info, target: target.info,
+                allExtras: rows.map { $0.info }
+            ) { moved in
+                if moved {
+                    AppLogger.info("NotchOverflow: rearrangement applied")
+                }
+                self?.collapseAfterRearrangement(expanded)
+            }
+        }
+    }
+
+    // MARK: - NSMenuDelegate
+
+    /// View-based rows paint their own selection, but AppKit does not know to
+    /// redraw them when the highlight moves, so nudge the two rows involved.
+    func menu(_ menu: NSMenu, willHighlight item: NSMenuItem?) {
+        lastHighlightedMenuItem?.view?.needsDisplay = true
+        item?.view?.needsDisplay = true
+        lastHighlightedMenuItem = item
     }
 
     // MARK: - Accessibility
@@ -380,20 +580,5 @@ class NotchOverflowController: NSObject {
             }
         }
         return results
-    }
-}
-
-// MARK: - NSImage Extension
-
-extension NSImage {
-    fileprivate func resizedForMenu(tinted: Bool = false) -> NSImage {
-        let target = NSSize(width: 18, height: 18)
-        return NSImage(size: target, flipped: false) { rect in
-            self.draw(
-                in: rect,
-                from: NSRect(origin: .zero, size: self.size),
-                operation: .sourceOver, fraction: tinted ? 0.5 : 1.0)
-            return true
-        }
     }
 }

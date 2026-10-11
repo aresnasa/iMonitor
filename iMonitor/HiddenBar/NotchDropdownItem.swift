@@ -61,6 +61,16 @@ final class NotchDropdownItem: NSObject {
         }
     }
 
+    /// The popup can rearrange menu-bar icons by ⌘-dragging its rows, which
+    /// needs the Hidden Bar expanded for the duration of the drag.
+    func configureRearrangement(
+        prepare: @escaping (@escaping (Bool) -> Void) -> Void,
+        collapse: @escaping (Bool) -> Void
+    ) {
+        overflowController.prepareForRearrangement = prepare
+        overflowController.collapseAfterRearrangement = collapse
+    }
+
     @objc private func open() {
         openOverflow()
     }

@@ -62,6 +62,19 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             guard let self = self, AppConfig.hideMenuBarEnabled else { return }
             self.collapseIfPossible()
         }
+
+        // The notch overflow popup can rearrange icons by ⌘-dragging its rows;
+        // such a drag needs the bar expanded, so it borrows the collapse engine.
+        notchOverflowController.prepareForRearrangement = { [weak self] completion in
+            guard let self = self else {
+                completion(false)
+                return
+            }
+            self.temporarilyExpandForRearrangement(completion: completion)
+        }
+        notchOverflowController.collapseAfterRearrangement = { [weak self] expanded in
+            self?.restoreAfterRearrangement(expanded: expanded)
+        }
     }
 
     deinit {
@@ -269,6 +282,33 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             button.image = HiddenBarAssets.expandImage
         }
         autoCollapseIfNeeded()
+    }
+
+    // MARK: - Rearrangement support
+
+    /// Expand the bar if collapsed so a status item can be ⌘-dragged on the
+    /// real bar — macOS offers no other way to move one. The completion runs on
+    /// the main queue; `true` means the caller must call
+    /// `restoreAfterRearrangement` when the drag is done.
+    func temporarilyExpandForRearrangement(completion: @escaping (Bool) -> Void) {
+        guard isCollapsed else {
+            completion(false)
+            return
+        }
+        expandMenubar()
+        // Nothing may yank the bar shut while the synthetic drag is in flight.
+        timer?.invalidate()
+        timer = nil
+        // Let the reveal settle before events land on the bar.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            completion(true)
+        }
+    }
+
+    /// Re-collapse after a rearrangement drag, if it required expanding first.
+    func restoreAfterRearrangement(expanded: Bool) {
+        guard expanded else { return }
+        collapseIfPossible()
     }
 
     private func autoCollapseIfNeeded() {

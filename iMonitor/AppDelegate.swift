@@ -118,7 +118,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             hiddenBarController = HiddenBarController()
         }
         if AppConfig.notchOverflowEnabled, NotchDropdownItem.isSupported {
-            notchDropdownItem = NotchDropdownItem()
+            let dropdown = NotchDropdownItem()
+            // The dropdown's rearrangement drags borrow the Hidden Bar engine:
+            // icons are only ⌘-draggable while the bar is expanded.
+            dropdown.configureRearrangement(
+                prepare: { [weak self] completion in
+                    guard let hiddenBar = self?.hiddenBarController else {
+                        completion(false)
+                        return
+                    }
+                    hiddenBar.temporarilyExpandForRearrangement(completion: completion)
+                },
+                collapse: { [weak self] expanded in
+                    self?.hiddenBarController?.restoreAfterRearrangement(expanded: expanded)
+                })
+            notchDropdownItem = dropdown
         }
     }
 

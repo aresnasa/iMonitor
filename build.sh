@@ -16,7 +16,8 @@ set -euo pipefail
 #    ./build.sh --help                # Show this help
 #
 #  Environment variables (optional):
-#    SIGN_IDENTITY     Code-sign identity (default: "-" for ad-hoc)
+#    SIGN_IDENTITY     Code-sign identity (default: auto — the local "iMonitor
+#                      Local Signing" certificate when present, otherwise ad-hoc)
 #    MARKETING_VERSION Override version string
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -144,7 +145,18 @@ push_cask_to_tap() {
 }
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-SIGN_ID="${SIGN_IDENTITY:--}"
+# Prefer the stable local self-signed identity when it exists and the caller did
+# not pick an identity: its designated requirement pins the bundle id plus the
+# certificate (not the per-build cdhash), so TCC grants — Accessibility in
+# particular — survive rebuilds. Falls back to ad-hoc.
+LOCAL_SIGN_ID="iMonitor Local Signing"
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+    SIGN_ID="$SIGN_IDENTITY"
+elif security find-identity -v -p codesigning 2>/dev/null | grep -qF "$LOCAL_SIGN_ID"; then
+    SIGN_ID="$LOCAL_SIGN_ID"
+else
+    SIGN_ID="-"
+fi
 MAKE_DMG=false
 CLEAN=false
 
@@ -198,7 +210,8 @@ Other:
   --help, -h        Show this help
 
 Environment:
-  SIGN_IDENTITY      Code-sign identity (default: "-" for ad-hoc)
+  SIGN_IDENTITY      Code-sign identity (default: auto — local "iMonitor
+                     Local Signing" certificate when present, otherwise "-")
   MARKETING_VERSION  Override version string
 HELP
             exit 0
@@ -314,10 +327,20 @@ if ! $SKIP_BUILD && ! $FIX_SHA; then
         # Even network.client with ad-hoc is rejected on some machines.
         # iMonitor doesn't need entitlements: nettop is a subprocess, not in-process.
         ACTIVE_ENTITLEMENTS=""
+        SIGN_MODE="ad-hoc"
         info "Mode: ad-hoc (no Hardened Runtime, no entitlements)"
+    elif [ "$SIGN_ID" = "$LOCAL_SIGN_ID" ]; then
+        # Local self-signed: same runtime story as ad-hoc, but the signature is
+        # anchored to a certificate, so the macOS Accessibility (TCC) grant pins
+        # to the certificate and survives rebuilds instead of following the
+        # rotating ad-hoc cdhash.
+        ACTIVE_ENTITLEMENTS=""
+        SIGN_MODE="local"
+        info "Mode: local self-signed (stable identity for local TCC grants)"
     else
         # Developer ID: full Hardened Runtime + secure timestamp for notarisation.
         ACTIVE_ENTITLEMENTS="$ENTITLEMENTS_ADHOC"
+        SIGN_MODE="developer-id"
         info "Mode: Developer ID (Hardened Runtime)"
     fi
 
@@ -352,18 +375,18 @@ if ! $SKIP_BUILD && ! $FIX_SHA; then
     info "Signed ${NESTED_COUNT} nested bundle(s)"
 
     # Sign main app
-    if [ "$SIGN_ID" = "-" ]; then
-        SIGN_FLAGS=(--force --sign "$SIGN_ID"
-                    --timestamp=none)
-    else
+    if [ "$SIGN_MODE" = "developer-id" ]; then
         SIGN_FLAGS=(--force --sign "$SIGN_ID"
                     --entitlements "$ACTIVE_ENTITLEMENTS"
                     --options runtime
                     --timestamp)
+    else
+        SIGN_FLAGS=(--force --sign "$SIGN_ID"
+                    --timestamp=none)
     fi
 
     codesign "${SIGN_FLAGS[@]}" "$APP_BUNDLE"
-    success "Code signing complete ($([ "$SIGN_ID" = "-" ] && echo "ad-hoc" || echo "Developer ID"))"
+    success "Code signing complete (${SIGN_MODE}: ${SIGN_ID})"
 
     # Verify
     codesign -vv "$APP_BUNDLE" 2>&1 | while IFS= read -r line; do info "$line"; done

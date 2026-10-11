@@ -33,6 +33,7 @@
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
 		ACC1FCD8574F709E05431DF6 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B50740B11D3815E58EA39639 /* Preview Assets.xcassets */; };
+		AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */; };
 		B0C0DCA007148564B0050BFD /* HBNativeVisibilityShim.m in Sources */ = {isa = PBXBuildFile; fileRef = 59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */; };
 		B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6000C2555780235B42C5B3B /* SettingsView.swift */; };
 		BA546140676E413066A9B987 /* GlobalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */; };
@@ -40,6 +41,7 @@
 		BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */; };
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
 		BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */; };
+		C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
 		C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */; };
 		C87A7FB158CBBE6AFA578D90 /* NativeVisibilityEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */; };
@@ -47,6 +49,7 @@
 		CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */; };
 		F3C3B23633E86DFF436B9013 /* NettopIPAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 206723C2C26FCC4941161856 /* NettopIPAggregator.swift */; };
 		FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */; };
+		FC9FC6F180EE760A7D17045F /* MenuBarItemMover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,13 +73,16 @@
 		59CBEDE1B63FA95728812906 /* HBNativeVisibilityShim.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HBNativeVisibilityShim.m; sourceTree = "<group>"; };
 		59F05FCAA582E102F54E637A /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		5C1714B0FA7CF35930B27B5D /* Main.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = Main.storyboard; sourceTree = "<group>"; };
+		5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowDragSession.swift; sourceTree = "<group>"; };
 		65B44EE509AF585A4BAD28AB /* NettopRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NettopRunner.swift; sourceTree = "<group>"; };
+		67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarItemMover.swift; sourceTree = "<group>"; };
 		6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLayout.swift; sourceTree = "<group>"; };
 		733E532228253D04BA91E966 /* MenuItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuItem.swift; sourceTree = "<group>"; };
 		767700A10FED351DFF6EF2A1 /* IpEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IpEntity.swift; sourceTree = "<group>"; };
 		7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchOverflow.swift; sourceTree = "<group>"; };
 		83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityEngine.swift; sourceTree = "<group>"; };
 		84EFC1D42659D5C8F8F609CA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowRowView.swift; sourceTree = "<group>"; };
 		9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
 		B1B5A8DDA6B0EC24F7D2853C /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
@@ -192,11 +198,14 @@
 				451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */,
 				02575A2E5176A2DDB4099F64 /* MenuBarEngine.swift */,
 				2E75EE53E213A46DB1DD5046 /* MenuBarEngineFactory.swift */,
+				67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */,
 				6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */,
 				4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */,
 				83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */,
 				F5DE2E2D944F63DD606A7471 /* NotchDropdownItem.swift */,
 				7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */,
+				5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */,
+				8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */,
 			);
 			path = HiddenBar;
 			sourceTree = "<group>";
@@ -287,6 +296,7 @@
 				6C01766A03B373CF7CA5E1FA /* ListViewModel.swift in Sources */,
 				CE18F50668B3C9A43A734D23 /* MenuBarEngine.swift in Sources */,
 				43256DBD1D14545B3D44BB7E /* MenuBarEngineFactory.swift in Sources */,
+				FC9FC6F180EE760A7D17045F /* MenuBarItemMover.swift in Sources */,
 				C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */,
 				27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */,
 				BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */,
@@ -296,6 +306,8 @@
 				45C19CDCAE7F7FBAA68F5358 /* Network.swift in Sources */,
 				BE316C7896B6E42CE40C89C9 /* NotchDropdownItem.swift in Sources */,
 				FC7EDA245F405C0C7769831E /* NotchOverflow.swift in Sources */,
+				AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */,
+				C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,
 				B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */,
 				3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */,
