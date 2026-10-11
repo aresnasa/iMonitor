@@ -222,6 +222,7 @@
 			buildPhases = (
 				4A42BBCD874D28943AB52335 /* Sources */,
 				AD34C64BE729B6F27C30880D /* Resources */,
+				DA9279CA1AE71F979FFCBF75 /* Stabilize signing identity */,
 			);
 			buildRules = (
 			);
@@ -276,6 +277,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DA9279CA1AE71F979FFCBF75 /* Stabilize signing identity */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Stabilize signing identity";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "APP=\"$TARGET_BUILD_DIR/$WRAPPER_NAME\"\nID=\"iMonitor Local Signing\"\n[ -d \"$APP\" ] || exit 0\nif ! security find-identity -v -p codesigning 2>/dev/null | grep -qF \"$ID\"; then\n  echo \"note: '$ID' not found - keeping the linker's ad-hoc signature\"\n  exit 0\nfi\nfor nested in \"$APP\"/Contents/Frameworks/* \"$APP\"/Contents/PlugIns/* \"$APP\"/Contents/Library/*; do\n  [ -e \"$nested\" ] || continue\n  codesign --force --sign \"$ID\" --timestamp=none \"$nested\" \\\n    || echo \"warning: failed to sign '$nested'\"\ndone\nif codesign --force --sign \"$ID\" --timestamp=none \"$APP\"; then\n  echo \"signed '$APP' with '$ID'\"\nelse\n  echo \"warning: failed to sign with '$ID' - keeping the ad-hoc signature\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4A42BBCD874D28943AB52335 /* Sources */ = {
@@ -343,6 +365,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"iMonitor/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"HIDDENBAR_NATIVE_VISIBILITY=1",
@@ -499,6 +522,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"iMonitor/Preview Content\"";
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"DEBUG=1",

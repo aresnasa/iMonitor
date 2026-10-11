@@ -46,6 +46,9 @@ targets:
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGNING_ALLOWED: NO
         ENABLE_HARDENED_RUNTIME: NO
+        # The re-sign phase below shells out to `security`/`codesign`; keep the
+        # script out of the sandbox so it can reach the login keychain.
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         COMBINE_HIDPI_IMAGES: YES
         CURRENT_PROJECT_VERSION: 1
         DEVELOPMENT_ASSET_PATHS: '"iMonitor/Preview Content"'
@@ -76,6 +79,35 @@ targets:
           GCC_PREPROCESSOR_DEFINITIONS:
             - "$(inherited)"
             - "HIDDENBAR_NATIVE_VISIBILITY=1"
+
+    postBuildScripts:
+      # Xcode's product is left unsigned (CODE_SIGNING_ALLOWED=NO above) with
+      # only the linker's ad-hoc signature, which macOS treats as a new identity
+      # on every build - Accessibility grants then never stick to it: the grant
+      # belongs to a different build until it is re-signed with a stable
+      # certificate. When this Mac has the local certificate, sign the product
+      # with it, so one grant covers Xcode runs, /Applications copies and all
+      # future rebuilds alike. Without the certificate (CI, other Macs) the
+      # phase leaves the linker's ad-hoc signature alone.
+      - name: Stabilize signing identity
+        script: |
+          APP="$TARGET_BUILD_DIR/$WRAPPER_NAME"
+          ID="iMonitor Local Signing"
+          [ -d "$APP" ] || exit 0
+          if ! security find-identity -v -p codesigning 2>/dev/null | grep -qF "$ID"; then
+            echo "note: '$ID' not found - keeping the linker's ad-hoc signature"
+            exit 0
+          fi
+          for nested in "$APP"/Contents/Frameworks/* "$APP"/Contents/PlugIns/* "$APP"/Contents/Library/*; do
+            [ -e "$nested" ] || continue
+            codesign --force --sign "$ID" --timestamp=none "$nested" \
+              || echo "warning: failed to sign '$nested'"
+          done
+          if codesign --force --sign "$ID" --timestamp=none "$APP"; then
+            echo "signed '$APP' with '$ID'"
+          else
+            echo "warning: failed to sign with '$ID' - keeping the ad-hoc signature"
+          fi
 
 schemes:
   iMonitor:
