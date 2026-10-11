@@ -154,8 +154,8 @@ struct MenuBarSettingsView: View {
                                 + "hidden icons. Moving over app menus or other icons, or "
                                 + "clicking them, never reveals them.")
 
-                    // Only an empty stretch of the bar reveals (the arrow
-                    // itself opens the dropdown on click), after this rest.
+                    // Only an empty stretch of the bar reveals (a click on the
+                    // arrow itself expands), after this rest.
                     if hoverToExpand {
                         HStack(spacing: 6) {
                             Text("Hover delay")
@@ -222,8 +222,11 @@ struct MenuBarSettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
 
-            Toggle("Menu-bar items dropdown (double-click the iMonitor icon)", isOn: $notchEnabled)
-                .font(.system(size: 11))
+            Toggle(
+                "Menu-bar items dropdown (double-click the iMonitor icon or the arrow)",
+                isOn: $notchEnabled
+            )
+            .font(.system(size: 11))
 
             if notchEnabled {
                 HStack(spacing: 6) {

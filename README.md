@@ -8,18 +8,17 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 - **Network Monitoring** — Upload/download speed with per-process breakdown
 - **Per-Process Details** — CPU% and memory usage for each process
 - **Hide Menu Bar Icons** — An arrow and separator that tuck icons you choose out of sight (ported from Hidden Bar), with auto-collapse and expand-on-hover
-- **Hidden Icons Dropdown** — Click the collapsed arrow to list every hidden menu-bar icon in one dropdown — fully hidden ones and icons squeezed behind the notch — click to open, ⌘-drag to rearrange, without expanding the bar
+- **Hidden Icons Dropdown** — Double-click the arrow (or the iMonitor icon) to list every menu-bar icon in one dropdown — fully hidden ones and icons squeezed behind the notch included — click to open, ⌘-drag to rearrange, without expanding the bar
 - **Dark Mode** — Automatically adapts to system appearance
 - **Universal Binary** — Native support for Apple Silicon (arm64) and Intel (x86_64)
 
 ## Menu Bar Icons (Hidden Bar)
 
-Click the arrow to hide the icons to its left. Click it again while collapsed to
-open a dropdown listing **all** hidden menu-bar icons — the fully hidden ones and
-the icons squeezed behind the camera notch — in one place: click an entry to open
-it, or ⌘-drag entries to rearrange the bar. The bar itself never expands; when you
-do need the real bar (to ⌘-drag the `|` separator, for example), right-click the
-arrow and choose *Expand Menu Bar*.
+Click the arrow to hide the icons to its left; click it again to bring them back
+out, to the left of the arrow. **Double-click** the arrow instead to open a
+dropdown below it listing **all** menu-bar icons — the fully hidden ones and the
+icons squeezed behind the camera notch included — while the bar stays collapsed:
+click an entry to open it, or ⌘-drag entries to rearrange the bar.
 
 **⌘-drag the `|` separator** to choose which icons get hidden: everything left of
 the separator hides when collapsed. Right-click the arrow or the separator for the
@@ -31,7 +30,7 @@ only appears when icon hiding is off.
 pointer *rests* on an empty part of the menu bar — on the arrow's hidden side,
 past the app's menus. Moving across the bar to an app menu or another icon, or
 clicking one, never reveals them, and a peek hides again once the pointer leaves
-the bar. The arrow itself never expands on hover: clicking it opens the list.
+the bar. The arrow itself never expands on hover, only on a click.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear

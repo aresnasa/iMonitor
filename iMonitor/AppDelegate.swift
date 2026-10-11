@@ -427,9 +427,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             hasBarSection = true
         }
 
-        // Collapsed bar: an arrow click opens the dropdown instead of
-        // expanding, so full expansion - only needed to ⌘-drag the separator
-        // on the real bar - lives in the menu.
+        // Collapsed bar: full expansion. A click on the arrow does the same,
+        // but this menu is also the main icon's gear menu - the way in when
+        // the arrow sits behind the notch or was removed via Control Center.
         if let controller = hiddenBarController, controller.isCollapsed {
             let expandItem = NSMenuItem(
                 title: "Expand Menu Bar",
@@ -440,20 +440,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             hasBarSection = true
         }
 
-        if hasBarSection {
-            menu.addItem(NSMenuItem.separator())
-        }
-
         // Auto Collapse flips the Hidden Bar's own timer, so the item only
-        // exists while that feature is running.
+        // exists while that feature is running. A setting, so a checkmark
+        // shows its state, like any macOS menu toggle.
         if hiddenBarController != nil {
             let autoCollapseItem = NSMenuItem(
-                title: AppConfig.hideAutoCollapseEnabled
-                    ? "Disable Auto Collapse" : "Enable Auto Collapse",
+                title: "Auto Collapse",
                 action: #selector(toggleAutoCollapseFromMenu(_:)),
                 keyEquivalent: "")
             autoCollapseItem.target = self
+            autoCollapseItem.state = AppConfig.hideAutoCollapseEnabled ? .on : .off
+            if #available(macOS 26.0, *) {
+                // macOS 26+ menus reserve the leading checkmark column only
+                // while some item shows a state image: unchecked, the toggle
+                // would leave every title flush against the edge, and checking
+                // it would shift them all sideways. An invisible checkmark
+                // keeps the column - the usual menu indentation - in both states.
+                autoCollapseItem.offStateImage = Self.uncheckedStatePlaceholder()
+            }
             menu.addItem(autoCollapseItem)
+            hasBarSection = true
+        }
+
+        if hasBarSection {
+            menu.addItem(NSMenuItem.separator())
         }
 
         // Settings… opens the panel with the settings section showing.
@@ -496,6 +506,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(quitItem)
 
         return menu
+    }
+
+    /// A transparent stand-in for the menu checkmark, at the size the system
+    /// draws it: the "checkmark" symbol at the menu font's size, small scale,
+    /// semibold (13×11 pt at the default size, measured on macOS 27). The
+    /// default onStateImage cannot be measured instead - it reports 18×17 and
+    /// is scaled down when drawn, while a custom image is drawn as-is.
+    private static func uncheckedStatePlaceholder() -> NSImage {
+        let configuration = NSImage.SymbolConfiguration(
+            pointSize: NSFont.menuFont(ofSize: 0).pointSize, weight: .semibold, scale: .small)
+        let size =
+            NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)?.size ?? NSSize(width: 13, height: 11)
+        return NSImage(size: size, flipped: false) { _ in true }
     }
 
     @objc private func performUpdateFromMenu(_ sender: AnyObject?) {

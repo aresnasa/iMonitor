@@ -234,9 +234,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // only once the pointer has come to rest there for
     // `hideHoverExpandSeconds`. A pointer passing through on its way to an app
     // menu or another icon, or any click in the bar, never reveals the hidden
-    // icons. The arrow itself never hover-expands: clicking it opens the
-    // hidden-icons dropdown, and a hover expansion would turn that click into
-    // a collapse. A reveal is a peek that hides again once the pointer leaves
+    // icons. The arrow itself never hover-expands: a click on it expands, and
+    // a hover expansion would turn that click into a collapse. A reveal is a
+    // peek that hides again once the pointer leaves
     // the bar (see pointerDidLeaveMenuBar).
     private func handlePointerMoved() {
         let isInBar = isMouseInMenuBar
@@ -416,14 +416,22 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         isHoverSuppressed = true
         cancelHoverDwell()
         let event = NSApp.currentEvent
+        // clickCount is only defined for mouse events (reading it off any other
+        // event raises).
+        let clickCount = event?.type == .leftMouseUp ? event?.clickCount ?? 1 : 1
         // AXPress synthesis carries no NSEvent; the resolver maps nil to .toggle
         // so VoiceOver can operate the bar.
         switch ExpandCollapseActionResolver.action(
             eventType: event?.type,
-            optionPressed: event?.modifierFlags.contains(.option) ?? false)
+            optionPressed: event?.modifierFlags.contains(.option) ?? false,
+            clickCount: clickCount)
         {
         case .toggle:
             toggleExpandedCollapsed()
+        case .showItemsList:
+            showItemsListAfterDoubleClick()
+        case .ignore:
+            break
         case .contextMenu:
             showContextMenu(from: sender)
         case .toggleSeparators:
@@ -440,28 +448,42 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // Prevent rapid clicks from stacking hide/show animations.
         if isToggle { return }
         isToggle = true
-        // Collapsed, the arrow opens the hidden-items dropdown instead of
-        // expanding: the bar never reshuffles, and every hidden icon stays
-        // clickable and ⌘-draggable from the one list. Full expansion remains
-        // in the context menu for the one thing the list cannot do - ⌘-dragging
-        // the separator on the real bar.
+        // A click reveals the hidden icons on the bar itself, to the arrow's
+        // left; a double-click pops them down as a list instead (see
+        // showItemsListAfterDoubleClick).
         // wantsCollapsed, not the derived engine state: a foreign menu's
         // relayout can reset the separator and make the engine misread the bar
         // as expanded, which would turn this click into a collapse.
-        if wantsCollapsed, AppConfig.notchOverflowEnabled {
-            // Open on the next tick: showOverflowMenu ends in performClick on
-            // this same button (menu tracking), which must not re-enter the
-            // click currently being dispatched.
-            DispatchQueue.main.async { [weak self] in
-                self?.openOverflowMenu()
-            }
-        } else if wantsCollapsed {
+        if wantsCollapsed {
             expandMenubar(reason: "arrow click")
         } else {
             collapseIfPossible()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.isToggle = false
+        }
+    }
+
+    // The second click of a double-click on the arrow: every menu-bar icon in
+    // one list popped down from the arrow, over a collapsed bar - the list
+    // stands in for the reveal, so the bar does not reshuffle under it. The
+    // pair's first click has toggled the bar already; put the hiding back if
+    // that click revealed it (the same undo as a double-click on iMonitor's
+    // own icon, whose first click opened the panel). Without the dropdown
+    // feature a double-click is just a click, and the first one's toggle
+    // stands.
+    private func showItemsListAfterDoubleClick() {
+        guard AppConfig.notchOverflowEnabled else { return }
+        if !wantsCollapsed {
+            // Mid-collapse (the first click collapsed an expanded bar), the
+            // engine ignores this request and the one in flight finishes.
+            collapseIfPossible()
+        }
+        // Next tick: showOverflowMenu ends in performClick on this same button
+        // (menu tracking), which must not re-enter the click currently being
+        // dispatched.
+        DispatchQueue.main.async { [weak self] in
+            self?.openOverflowMenu()
         }
     }
 
@@ -674,8 +696,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     /// Every menu-bar icon in one dropdown: the fully hidden ones and the ones
     /// squeezed behind the notch, clickable, and ⌘-draggable to rearrange.
-    /// The shared menu's "Show Menu-bar Items…" action lands here when the
-    /// standalone chevron is off (anchored to the arrow).
+    /// Popped down from the arrow by a double-click on it.
     func openOverflowMenu() {
         notchOverflowController.showOverflowMenu(near: toggleItem)
     }
