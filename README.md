@@ -6,7 +6,7 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 
 - **System Metrics** — Real-time CPU, Memory, and GPU utilization with animated bar charts in the menu bar
 - **Network Monitoring** — Upload/download speed with per-process breakdown
-- **Per-Process Details** — CPU% and memory usage for each process
+- **Per-Process Details** — CPU%, memory and GPU% for each process, sortable by network, CPU, memory or GPU
 - **Hide Menu Bar Icons** — An arrow and separator that tuck icons you choose out of sight (ported from Hidden Bar), with auto-collapse and expand-on-hover
 - **Hidden Icons Dropdown** — Double-click the arrow (or the iMonitor icon) to list every menu-bar icon in one dropdown — fully hidden ones and icons squeezed behind the notch included — click to open, ⌘-drag to rearrange, without expanding the bar
 - **Dark Mode** — Automatically adapts to system appearance

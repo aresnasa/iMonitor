@@ -32,7 +32,7 @@ final class SystemMonitor {
 
         // Take initial samples for baseline
         _ = sampleCPU()
-        _ = sampleProcessCpu()
+        _ = sampleProcesses()
         processGPUSampler.resetBaseline()
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
@@ -53,7 +53,7 @@ final class SystemMonitor {
         let cpu = sampleCPU()
         let (memUsed, memTotal) = sampleMemory()
         let gpu = sampleGPU()
-        let processes = sampleProcessCpu()
+        let processes = sampleProcesses()
 
         let metrics = SystemMetrics(
             cpuUsage: cpu,
@@ -199,7 +199,7 @@ final class SystemMonitor {
 
     // MARK: - Per-Process CPU, GPU & Memory (delta-based CPU% and GPU%)
 
-    private func sampleProcessCpu() -> [ProcessResourceInfo] {
+    private func sampleProcesses() -> [ProcessResourceInfo] {
         let processGPU = processGPUSampler.sample()
         let bufSize = 4096
         var pids = [pid_t](repeating: 0, count: bufSize)
