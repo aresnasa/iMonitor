@@ -4,6 +4,7 @@ enum SortField: String, CaseIterable {
     case network = "NET"
     case cpu = "CPU"
     case memory = "MEM"
+    case gpu = "GPU"
 
     var displayName: String { rawValue }
 }
@@ -40,6 +41,7 @@ class ListViewModel: ObservableObject {
                 items[i].outBytes = newItem.outBytes
                 items[i].cpuUsage = newItem.cpuUsage
                 items[i].memoryUsed = newItem.memoryUsed
+                items[i].gpuUsage = newItem.gpuUsage
             } else {
                 items.append(newItem)
             }
@@ -73,6 +75,8 @@ class ListViewModel: ObservableObject {
                 order = Self.compare(lhs.cpuUsage, rhs.cpuUsage)
             case .memory:
                 order = Self.compare(lhs.memoryUsed, rhs.memoryUsed)
+            case .gpu:
+                order = Self.compare(lhs.gpuUsage, rhs.gpuUsage)
             case .network:
                 order = Self.compare(lhs.inBytes + lhs.outBytes, rhs.inBytes + rhs.outBytes)
             }

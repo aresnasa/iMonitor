@@ -17,6 +17,9 @@ final class SystemMonitor {
     // Per-process CPU delta tracking: pid -> (total_ns, timestamp)
     private var prevProcessCpu: [Int: (totalNs: UInt64, time: TimeInterval)] = [:]
 
+    // Per-process GPU time, derived from the accelerator's user clients
+    private let processGPUSampler = ProcessGPUSampler()
+
     init(interval: Int) {
         self.interval = interval
     }
@@ -30,6 +33,7 @@ final class SystemMonitor {
         // Take initial samples for baseline
         _ = sampleCPU()
         _ = sampleProcessCpu()
+        processGPUSampler.resetBaseline()
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + .seconds(interval), repeating: .seconds(interval))
@@ -193,9 +197,10 @@ final class SystemMonitor {
         return found ? maxUtilization : nil
     }
 
-    // MARK: - Per-Process CPU & Memory (delta-based CPU%)
+    // MARK: - Per-Process CPU, GPU & Memory (delta-based CPU% and GPU%)
 
     private func sampleProcessCpu() -> [ProcessResourceInfo] {
+        let processGPU = processGPUSampler.sample()
         let bufSize = 4096
         var pids = [pid_t](repeating: 0, count: bufSize)
         let result = proc_listpids(
@@ -236,7 +241,8 @@ final class SystemMonitor {
                     pid: Int(pid),
                     name: getProcessName(pid: pid),
                     cpuUsage: cpuPercent,
-                    memoryUsed: UInt64(taskInfo.pti_resident_size)
+                    memoryUsed: UInt64(taskInfo.pti_resident_size),
+                    gpuUsage: Double(processGPU[Int(pid)] ?? 0)
                 ))
         }
 
@@ -267,4 +273,5 @@ struct ProcessResourceInfo {
     let name: String  // executable basename
     let cpuUsage: Double  // 0.0 - N.0 (can exceed 1.0 for multi-thread)
     let memoryUsed: UInt64  // resident size in bytes
+    let gpuUsage: Double  // 0.0 - N.0 (can exceed 1.0 on parallel command buffers)
 }

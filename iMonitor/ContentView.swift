@@ -343,6 +343,7 @@ struct ProcessRow: View {
         let anyActive = inActive || outActive
         let cpuActive = processEntity.cpuUsage > 0.001
         let memActive = processEntity.memoryUsed > 0
+        let gpuActive = processEntity.gpuUsage > 0.001
 
         let total = processEntity.inBytes + processEntity.outBytes
         let totalRatio = maxTotal > 0 ? CGFloat(total) / CGFloat(maxTotal) : 0
@@ -365,7 +366,7 @@ struct ProcessRow: View {
                 Text("CPU")
                     .font(.system(size: 8, weight: .medium))
                     .foregroundColor(cpuActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatCpuPercent(processEntity.cpuUsage))
+                Text(formatProcessPercent(processEntity.cpuUsage))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(cpuActive ? .primary : Color.secondary.opacity(0.35))
                     .frame(width: 36, alignment: .trailing)
@@ -379,6 +380,17 @@ struct ProcessRow: View {
                 Text(formatBytesCompact(bytes: Int(processEntity.memoryUsed)))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(memActive ? .primary : Color.secondary.opacity(0.35))
+                    .frame(width: 36, alignment: .trailing)
+            }
+
+            // GPU
+            HStack(spacing: 1) {
+                Text("GPU")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(gpuActive ? .secondary : Color.secondary.opacity(0.35))
+                Text(formatGpuPercent(processEntity.gpuUsage))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(gpuActive ? .primary : Color.secondary.opacity(0.35))
                     .frame(width: 36, alignment: .trailing)
             }
 
@@ -500,11 +512,21 @@ struct IPRow: View {
     }
 }
 
-private func formatCpuPercent(_ value: Double) -> String {
+private func formatProcessPercent(_ value: Double) -> String {
     let pct = value * 100
     if pct < 0.1 { return "—" }
     if pct < 10 { return String(format: "%.1f%%", pct) }
     return String(format: "%.0f%%", pct)
+}
+
+/// Per-process GPU fraction of wall time. Values above 100% are real
+/// (parallel command buffers) and shown as such.
+private func formatGpuPercent(_ value: Double) -> String {
+    let pct = value * 100
+    if pct < 0.1 { return "—" }
+    if pct < 10 { return String(format: "%.1f%%", pct) }
+    if pct < 100 { return String(format: "%.0f%%", pct) }
+    return String(format: "≥100%%")
 }
 
 struct ContentView_Previews: PreviewProvider {

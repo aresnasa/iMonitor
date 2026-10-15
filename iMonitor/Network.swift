@@ -113,22 +113,25 @@ class Network {
             if let res = resources[e.pid] {
                 e.cpuUsage = res.cpuUsage
                 e.memoryUsed = res.memoryUsed
+                e.gpuUsage = res.gpuUsage
             }
             return e
         }
 
-        // Add system-only processes (no network activity but with CPU/Mem usage)
+        // Add system-only processes (no network activity but with CPU/Mem/GPU usage)
         let systemOnlyEntities: [ProcessEntity] = resources.compactMap {
             pid, res -> ProcessEntity? in
             guard !nettopPids.contains(pid) else { return nil }
-            guard res.cpuUsage >= 0.001 || res.memoryUsed >= 50_000_000 else { return nil }
+            guard res.cpuUsage >= 0.001 || res.memoryUsed >= 50_000_000 || res.gpuUsage >= 0.001
+            else { return nil }
             return ProcessEntity(
                 pid: pid,
                 name: res.name,
                 inBytes: 0,
                 outBytes: 0,
                 cpuUsage: res.cpuUsage,
-                memoryUsed: res.memoryUsed
+                memoryUsed: res.memoryUsed,
+                gpuUsage: res.gpuUsage
             )
         }
 

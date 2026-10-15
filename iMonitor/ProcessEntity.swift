@@ -16,15 +16,20 @@ struct ProcessEntity: Identifiable {
     public var outBytes: Int
     public var cpuUsage: Double
     public var memoryUsed: UInt64
+    public var gpuUsage: Double
     public var icon: NSImage?
 
-    public init(pid: Int, name: String, inBytes: Int, outBytes: Int, cpuUsage: Double = 0, memoryUsed: UInt64 = 0) {
+    public init(
+        pid: Int, name: String, inBytes: Int, outBytes: Int, cpuUsage: Double = 0,
+        memoryUsed: UInt64 = 0, gpuUsage: Double = 0
+    ) {
         self.pid = pid
         self.name = name
         self.inBytes = inBytes
         self.outBytes = outBytes
         self.cpuUsage = cpuUsage
         self.memoryUsed = memoryUsed
+        self.gpuUsage = gpuUsage
         self.icon = nil
     }
 }
