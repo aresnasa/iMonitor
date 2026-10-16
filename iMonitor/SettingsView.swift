@@ -64,6 +64,10 @@ struct SettingsView: View {
 
             Divider()
 
+            ProcessColumnSettingsView()
+
+            Divider()
+
             MenuBarSettingsView()
 
             Divider()
@@ -105,6 +109,52 @@ struct SettingsView: View {
         let logFile = dir.appendingPathComponent("imonitor.log")
         let fileToSelect = FileManager.default.fileExists(atPath: logFile.path) ? logFile.path : nil
         NSWorkspace.shared.selectFile(fileToSelect, inFileViewerRootedAtPath: dir.path)
+    }
+}
+
+/// Resource-column order for the process list rows. Up/down buttons rather
+/// than drag-reorder: five rows in a form-shaped settings pane, where hitting
+/// a small target beats dragging.
+struct ProcessColumnSettingsView: View {
+    @ObservedObject var columns = SharedStore.processColumnsModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Resource Columns")
+                .font(.system(size: 11, weight: .semibold))
+
+            ForEach(Array(columns.order.enumerated()), id: \.element) { index, column in
+                HStack(spacing: 6) {
+                    Text(column.displayName)
+                        .font(.system(size: 11))
+                        .frame(width: 44, alignment: .leading)
+
+                    Spacer()
+
+                    Button(action: { columns.move(column, by: -1) }) {
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index == 0)
+                    .help("Move \(column.displayName) left")
+
+                    Button(action: { columns.move(column, by: 1) }) {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(index == columns.order.count - 1)
+                    .help("Move \(column.displayName) right")
+                }
+                .foregroundColor(
+                    index == 0 || index == columns.order.count - 1 ? .secondary : .primary)
+            }
+
+            Text("Order of the resource columns in the process list.")
+                .font(.system(size: 9))
+                .foregroundColor(.secondary)
+        }
     }
 }
 

@@ -208,7 +208,7 @@ struct ContentView: View {
             }
             .frame(maxHeight: 240)
         }
-        .frame(width: 420)
+        .frame(maxWidth: .infinity)
         .background(Color("ContentBGColor"))
         // The menu-bar menus (gear menu, hidden-bar menu) can ask for the
         // settings section without knowing the panel's current state. Both
@@ -335,15 +335,13 @@ struct UsageBarRow: View {
 struct ProcessRow: View {
     var processEntity: ProcessEntity
     var maxTotal: Int
+    @ObservedObject var processColumns = SharedStore.processColumnsModel
 
     var body: some View {
         let appInfo = getAppInfo(pid: processEntity.pid, name: processEntity.name)
         let inActive = processEntity.inBytes > 0
         let outActive = processEntity.outBytes > 0
         let anyActive = inActive || outActive
-        let cpuActive = processEntity.cpuUsage > 0.001
-        let memActive = processEntity.memoryUsed > 0
-        let gpuActive = processEntity.gpuUsage > 0.001
 
         let total = processEntity.inBytes + processEntity.outBytes
         let totalRatio = maxTotal > 0 ? CGFloat(total) / CGFloat(maxTotal) : 0
@@ -361,59 +359,11 @@ struct ProcessRow: View {
                 .truncationMode(.middle)
                 .frame(width: 90, alignment: .leading)
 
-            // CPU
-            HStack(spacing: 1) {
-                Text("CPU")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(cpuActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatProcessPercent(processEntity.cpuUsage))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(cpuActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 36, alignment: .trailing)
-            }
-
-            // Memory
-            HStack(spacing: 1) {
-                Text("MEM")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(memActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatBytesCompact(bytes: Int(processEntity.memoryUsed)))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(memActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 36, alignment: .trailing)
-            }
-
-            // GPU
-            HStack(spacing: 1) {
-                Text("GPU")
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundColor(gpuActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatGpuPercent(processEntity.gpuUsage))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(gpuActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 36, alignment: .trailing)
-            }
-
-            // Down
-            HStack(spacing: 1) {
-                Text("↓")
-                    .font(.system(size: 9))
-                    .foregroundColor(inActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatBytesCompact(bytes: processEntity.inBytes))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(inActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 36, alignment: .trailing)
-            }
-
-            // Up
-            HStack(spacing: 1) {
-                Text("↑")
-                    .font(.system(size: 9))
-                    .foregroundColor(outActive ? .secondary : Color.secondary.opacity(0.35))
-                Text(formatBytesCompact(bytes: processEntity.outBytes))
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(outActive ? .primary : Color.secondary.opacity(0.35))
-                    .frame(width: 36, alignment: .trailing)
+            // Resource columns in the user's order (Settings). Only the name
+            // absorbs a resize: the metric columns are fixed-size and never
+            // wrap, so a narrow panel cannot stack their labels vertically.
+            ForEach(processColumns.order) { column in
+                metricColumn(column, inActive: inActive, outActive: outActive)
             }
         }
         .contentShape(Rectangle())
@@ -427,6 +377,62 @@ struct ProcessRow: View {
                 }
             }
         )
+    }
+
+    /// One resource column: a small label (CPU / MEM / GPU, or a ↓ / ↑ arrow
+    /// for the network pair) before a monospaced value.
+    @ViewBuilder
+    private func metricColumn(
+        _ column: ProcessColumn, inActive: Bool, outActive: Bool
+    ) -> some View {
+        switch column {
+        case .cpu:
+            metricValue(
+                label: "CPU",
+                value: formatProcessPercent(processEntity.cpuUsage),
+                active: processEntity.cpuUsage > 0.001)
+        case .memory:
+            metricValue(
+                label: "MEM",
+                value: formatBytesCompact(bytes: Int(processEntity.memoryUsed)),
+                active: processEntity.memoryUsed > 0)
+        case .gpu:
+            metricValue(
+                label: "GPU",
+                value: formatGpuPercent(processEntity.gpuUsage),
+                active: processEntity.gpuUsage > 0.001)
+        case .networkDown:
+            metricValue(
+                label: "↓",
+                labelFont: .system(size: 9),
+                value: formatBytesCompact(bytes: processEntity.inBytes),
+                active: inActive)
+        case .networkUp:
+            metricValue(
+                label: "↑",
+                labelFont: .system(size: 9),
+                value: formatBytesCompact(bytes: processEntity.outBytes),
+                active: outActive)
+        }
+    }
+
+    private func metricValue(
+        label: String,
+        labelFont: Font = .system(size: 8, weight: .medium),
+        value: String,
+        active: Bool
+    ) -> some View {
+        HStack(spacing: 1) {
+            Text(label)
+                .font(labelFont)
+                .foregroundColor(active ? .secondary : Color.secondary.opacity(0.35))
+            Text(value)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(active ? .primary : Color.secondary.opacity(0.35))
+                .frame(width: 36, alignment: .trailing)
+        }
+        // Metrics keep their intrinsic size: no wrap, no compression.
+        .fixedSize()
     }
 }
 

@@ -14,6 +14,7 @@ enum SharedStore {
     static let globalModel = GlobalModel()
     static let themeModel = ThemeModel()
     static let ipListViewModel = IPListViewModel()
+    static let processColumnsModel = ProcessColumnsModel()
     static let network = Network()
 }
 
@@ -24,5 +25,6 @@ extension View {
             .environmentObject(SharedStore.systemDataModel)
             .environmentObject(SharedStore.globalModel)
             .environmentObject(SharedStore.themeModel)
+            .environmentObject(SharedStore.processColumnsModel)
     }
 }
