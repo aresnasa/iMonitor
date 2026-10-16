@@ -10,6 +10,15 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "statusBarRefreshInterval", default: 2.0)
     static var statusBarRefreshInterval: Double
 
+    /// Left-to-right order of the resource columns in the process list
+    /// (see ProcessColumn). Written by the Settings row order controls;
+    /// unknown values are ignored and missing ones appended, so the list
+    /// always shows every resource.
+    @UserDefaultsWrapper(
+        key: "processColumnOrder",
+        default: ProcessColumn.allCases.map(\.rawValue))
+    static var processColumnOrder: [String]
+
     @UserDefaultsWrapper(key: "colorTheme", default: "default")
     static var colorTheme: String
 
