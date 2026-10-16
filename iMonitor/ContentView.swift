@@ -173,6 +173,10 @@ struct ContentView: View {
             Divider()
 
             // Process list / IP list
+            //
+            // Fill the panel's width explicitly: a ScrollView sizes to its
+            // content's ideal width otherwise, so the list shrank to a narrow
+            // column and floated in the middle of a widened panel.
             ScrollView(.vertical, showsIndicators: true) {
                 VStack(spacing: 0) {
                     if globalModel.viewMode == .process {
@@ -205,8 +209,9 @@ struct ContentView: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxHeight: 240)
+            .frame(maxWidth: .infinity, maxHeight: 240)
         }
         .frame(maxWidth: .infinity)
         .background(Color("ContentBGColor"))
@@ -359,13 +364,19 @@ struct ProcessRow: View {
                 .truncationMode(.middle)
                 .frame(width: 90, alignment: .leading)
 
-            // Resource columns in the user's order (Settings). Only the name
-            // absorbs a resize: the metric columns are fixed-size and never
-            // wrap, so a narrow panel cannot stack their labels vertically.
+            // Everything between the name and the metrics is empty slack: the
+            // metrics stay right-aligned at any panel width (the name keeps
+            // its column width so the values line up across rows).
+            Spacer(minLength: 6)
+
+            // Resource columns in the user's order (Settings). Only the slack
+            // above absorbs a resize: the metric columns are fixed-size and
+            // never wrap, so a narrow panel cannot stack their labels.
             ForEach(processColumns.order) { column in
                 metricColumn(column, inActive: inActive, outActive: outActive)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .background(
             GeometryReader { proxy in
@@ -469,7 +480,7 @@ struct IPRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .frame(width: 150, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Connections
             HStack(spacing: 1) {
@@ -504,6 +515,7 @@ struct IPRow: View {
                     .frame(width: 40, alignment: .trailing)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .background(
             GeometryReader { proxy in

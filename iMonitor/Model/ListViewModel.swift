@@ -1,9 +1,9 @@
 import Foundation
 
 enum SortField: String, CaseIterable {
-    case network = "NET"
     case cpu = "CPU"
     case memory = "MEM"
+    case network = "NET"
     case gpu = "GPU"
 
     var displayName: String { rawValue }

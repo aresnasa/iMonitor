@@ -5,9 +5,9 @@ import Foundation
 enum ProcessColumn: String, CaseIterable, Identifiable {
     case cpu
     case memory
-    case gpu
     case networkDown
     case networkUp
+    case gpu
 
     var id: String { rawValue }
 
