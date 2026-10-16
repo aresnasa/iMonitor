@@ -31,6 +31,7 @@
 		719D7862E4C1A5D998A134A6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0330B7177E5F80F52A4E65CC /* Assets.xcassets */; };
 		7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */; };
 		80CF021863AEC26B1ABA36A9 /* MenuBarHoverZone.swift in Sources */ = {isa = PBXBuildFile; fileRef = F906456B30F909A646E3B89D /* MenuBarHoverZone.swift */; };
+		8C0093DB126449F6AB55F950 /* ProcessColumnsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F9E04AFA22A9B20A9C8D8B5 /* ProcessColumnsModel.swift */; };
 		9C74D6F8A715F277D7A40334 /* AccessibilityPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */; };
 		A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59F05FCAA582E102F54E637A /* Store.swift */; };
 		AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F45D903C41BA05D94BF1CD /* ThemeModel.swift */; };
@@ -68,6 +69,7 @@
 		34E6767BDB116E6F3EFAB9DF /* MenuBarArrangementStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarArrangementStore.swift; sourceTree = "<group>"; };
 		38EEF68863702ED88B8279DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		3988A1F107CEAD378D4B01FC /* ProcessEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessEntity.swift; sourceTree = "<group>"; };
+		3F9E04AFA22A9B20A9C8D8B5 /* ProcessColumnsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessColumnsModel.swift; sourceTree = "<group>"; };
 		4278522D2BDDD523CFAC62F9 /* PermissionOnboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionOnboarding.swift; sourceTree = "<group>"; };
 		451E9302611BA6AD95BBEA15 /* LegacyLengthEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyLengthEngine.swift; sourceTree = "<group>"; };
 		4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityBridge.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 				28B1D42BD9E01F931B94AE51 /* GlobalModel.swift */,
 				767700A10FED351DFF6EF2A1 /* IpEntity.swift */,
 				AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */,
+				3F9E04AFA22A9B20A9C8D8B5 /* ProcessColumnsModel.swift */,
 				24BD785E69FC443A189BD9EB /* StatusDataModel.swift */,
 				4F918A29C931619B1AFCE28C /* SystemDataModel.swift */,
 				05F45D903C41BA05D94BF1CD /* ThemeModel.swift */,
@@ -338,6 +341,7 @@
 				AE66E887274D3FC81BC93912 /* OverflowDragSession.swift in Sources */,
 				C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */,
 				1632E3241F51BF95B3DD7BB2 /* PermissionOnboarding.swift in Sources */,
+				8C0093DB126449F6AB55F950 /* ProcessColumnsModel.swift in Sources */,
 				7F282E46AEBC408E33E3CF4D /* ProcessEntity.swift in Sources */,
 				0CDE3DA617D30DB97DAE3C8C /* ProcessGPUSampler.swift in Sources */,
 				B9F6ABE95D9CDEEDA5DDBE37 /* SettingsView.swift in Sources */,
@@ -382,7 +386,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 0.5.13;
+				MARKETING_VERSION = 0.5.14;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-fobjc-arc",
@@ -541,7 +545,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 0.5.13;
+				MARKETING_VERSION = 0.5.14;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-fobjc-arc",
