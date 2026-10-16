@@ -42,6 +42,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // panel once, so it is not yanked away before they can reach it.
     private var panelAwaitingMouseCustody = false
 
+    /// Default size for the first run; afterwards the panel frame is autosaved
+    /// under `panelFrameAutosaveName`, size and position both.
+    private static let defaultPanelSize = NSSize(width: 420, height: 460)
+    /// Content floor: narrower and the fixed CPU/MEM/GPU/network columns run
+    /// out of room and their labels start stacking letters vertically.
+    private static let minimumPanelSize = NSSize(width: 380, height: 260)
+    private static let panelFrameAutosaveName = "iMonitorMainPanel"
+
     static func quit() {
         AppLogger.info("iMonitor quitting")
         NSApplication.shared.terminate(self)
@@ -339,12 +347,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         globalModel.viewShowing = true
 
         if panel == nil {
+            // Resizable, so the process list can be widened past the fixed
+            // minimum every row needs; the frame (size *and* position) is
+            // autosaved, so the user's sizing survives the next launch.
             let hostingView = NSHostingView(rootView: contentView.withGlobalEnvironmentObjects())
-            hostingView.frame.size = NSSize(width: 420, height: 460)
+            hostingView.frame.size = NSSize(
+                width: Self.defaultPanelSize.width, height: Self.defaultPanelSize.height)
 
-            panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 420, height: 460),
-                styleMask: [.titled, .nonactivatingPanel],
+            let panel = NSPanel(
+                contentRect: NSRect(origin: .zero, size: Self.defaultPanelSize),
+                styleMask: [.titled, .resizable, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
             )
@@ -357,9 +369,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             panel.standardWindowButton(.zoomButton)?.isHidden = true
             panel.standardWindowButton(.closeButton)?.isHidden = true
             panel.delegate = self
+            // Narrower than this and the fixed metrics lose their slots; a
+            // height floor keeps the title bar, overview and a few rows
+            // visible whatever is loaded.
+            panel.contentMinSize = Self.minimumPanelSize
+            panel.contentMaxSize = NSSize(width: 2400, height: 2400)
+            // Anchor at the top-right under the menu bar on the first run;
+            // afterwards the autosave restores the frame the user sized,
+            // however it is now.
+            if !panel.setFrameUsingName(Self.panelFrameAutosaveName) {
+                positionPanelTopRight()
+            }
+            panel.setFrameAutosaveName(Self.panelFrameAutosaveName)
+            // A remembered position can be off the current screen (display
+            // unplugged, resolution changed): bring it back before showing it.
+            if let screen = NSScreen.main, !screen.visibleFrame.intersects(panel.frame) {
+                panel.center()
+            }
+            self.panel = panel
         }
 
-        positionPanelTopRight()
         panel.orderFrontRegardless()
         panel.makeKey()
         startMouseMonitoring()
@@ -731,6 +760,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Mid-resize the pointer sits on (or just past) the window's edge, and
+        // its coordinates trail the frame as the drag moves it: the leave-to-
+        // close check below would read "outside" and shut the panel the user
+        // is resizing.
+        if panel.inLiveResize { return }
+
         let mouseLoc = NSEvent.mouseLocation
         let panelFrame = panel.frame
 
@@ -778,11 +813,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func positionPanelTopRight() {
-        guard let screen = NSScreen.main else { return }
+        guard let panel = panel, let screen = NSScreen.main else { return }
         let screenRect = screen.visibleFrame
-        let panelX = screenRect.maxX - 440
-        let panelY = screenRect.maxY - 10
-        panel.setFrameOrigin(NSPoint(x: panelX, y: panelY))
+        panel.setFrameOrigin(NSPoint(x: screenRect.maxX - 440, y: screenRect.maxY - 10))
     }
 
     func applicationWillResignActive(_ aNotification: Notification) {
