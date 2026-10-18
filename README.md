@@ -32,10 +32,10 @@ past the app's menus. Moving across the bar to an app menu or another icon, or
 clicking one, never reveals them, and a peek hides again once the pointer leaves
 the bar. The arrow itself never expands on hover, only on a click.
 
-On macOS 27 the system's own hiding mode leaves macOS's menu-bar items (the
-clock/calendar, Wi-Fi, Control Center) visible but unresponsive. Clicking one of
-them briefly reveals the bar so the click can go through, and it hides again once
-that calendar or menu closes (and the pointer has left the bar).
+On macOS 27 the system's own hiding mode keeps macOS's menu-bar items (the
+clock/calendar, Wi-Fi, Control Center) visible but unresponsive while the icons
+are hidden. Expand the bar with the arrow to use them; the calendar and widgets
+panel then open as usual.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear

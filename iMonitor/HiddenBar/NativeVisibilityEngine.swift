@@ -43,10 +43,6 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private(set) var layout: MenuBarLayout?
 
     private var assertion: NativeVisibilityAssertion?
-    // macOS's own items (clock/calendar, Wi-Fi, Control Center...) as last read
-    // from an unrestricted bar. Their positions are trailing-anchored, so the
-    // pre-collapse read is still where they are once the apps' items hide.
-    private(set) var systemItemFrames: [CGRect] = []
     // Bumped whenever a pending activation must no longer win (an expand, a newer
     // activation); a late success is then invalidated straight away.
     private var generation = 0
@@ -167,10 +163,6 @@ final class NativeVisibilityEngine: MenuBarEngine {
             // clock/calendar in particular, which the restriction would
             // otherwise leave inert) can be forwarded through a temporary
             // release.
-            self.systemItemFrames = inventory.filter { item in
-                guard let bundle = item.bundleIdentifier else { return false }
-                return MenuBarLayoutResolver.systemItemOwners.contains(bundle)
-            }.map(\.frame)
             self.layout = layout
             body(layout)
         }
@@ -181,7 +173,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private func activate(allowing bundles: [String], completion: @escaping (Bool) -> Void) {
         generation += 1
         let generation = self.generation
-        let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles
+        // Notification Center owns the calendar/widgets panel the clock opens.
+        // Without its bundle in the allow-list, re-applying the restriction
+        // dismisses that panel; with it, the panel survives while the apps'
+        // icons go back into hiding. (Measured: re-applying 0.2 s after the
+        // click still keeps the panel open.) Control Center's panel behaves
+        // the same way for its own module.
+        let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
+        let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles + systemUIBundles
         visibility.activate(
             allowedSystemItems: Self.systemItemsToKeep,
             allowedBundleIdentifiers: allowed
@@ -217,19 +216,6 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // Any arrangement works: whatever sits left of the arrow is the hidden section.
     var isArrangementValid: Bool {
         return true
-    }
-
-    // The assessment mode this engine activates keeps macOS's own items visible
-    // but inert, Notification Center included. The controller lets a click on
-    // one through with the restriction lifted for a moment.
-    var blocksSystemItemClicks: Bool {
-        return true
-    }
-
-    func releaseForSystemItemClick() {
-        state = .expanded
-        releaseAssertion()
-        setItemsHidden(false)
     }
 
     private func releaseAssertion() {
