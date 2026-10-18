@@ -43,6 +43,10 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private(set) var layout: MenuBarLayout?
 
     private var assertion: NativeVisibilityAssertion?
+    // macOS's own items (clock/calendar, Wi-Fi, Control Center...) as last read
+    // from an unrestricted bar. Their positions are trailing-anchored, so the
+    // pre-collapse read is still where they are once the apps' items hide.
+    private(set) var systemItemFrames: [CGRect] = []
     // Bumped whenever a pending activation must no longer win (an expand, a newer
     // activation); a late success is then invalidated straight away.
     private var generation = 0
@@ -159,6 +163,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
             AppLogger.info(
                 "NativeVisibility: arrow at x=\(boundary.midX); visible "
                     + "\(layout.bundles(in: [.visible])), hidden \(layout.bundles(in: [.hidden]))")
+            // Remember where macOS's own items are, so a click on one (the
+            // clock/calendar in particular, which the restriction would
+            // otherwise leave inert) can be forwarded through a temporary
+            // release.
+            self.systemItemFrames = inventory.filter { item in
+                guard let bundle = item.bundleIdentifier else { return false }
+                return MenuBarLayoutResolver.systemItemOwners.contains(bundle)
+            }.map(\.frame)
             self.layout = layout
             body(layout)
         }
@@ -205,6 +217,19 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // Any arrangement works: whatever sits left of the arrow is the hidden section.
     var isArrangementValid: Bool {
         return true
+    }
+
+    // The assessment mode this engine activates keeps macOS's own items visible
+    // but inert, Notification Center included. The controller lets a click on
+    // one through with the restriction lifted for a moment.
+    var blocksSystemItemClicks: Bool {
+        return true
+    }
+
+    func releaseForSystemItemClick() {
+        state = .expanded
+        releaseAssertion()
+        setItemsHidden(false)
     }
 
     private func releaseAssertion() {

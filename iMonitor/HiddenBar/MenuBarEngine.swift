@@ -26,6 +26,25 @@ protocol MenuBarEngine: AnyObject {
     // Display geometry changed. Re-applies the collapse to the live items when
     // collapsed, so a hot-plug does not leave a stale length behind.
     func invalidateLayout()
+
+    // MARK: - macOS's own items under native hiding
+
+    /// Whether holding this engine's hiding makes macOS's own menu-bar items
+    /// (clock/calendar, Wi-Fi, Control Center) unresponsive. The native
+    /// assessment-mode restriction does; the legacy length engine does not.
+    var blocksSystemItemClicks: Bool { get }
+    /// Frames of those system items, in screen coordinates (top-left origin),
+    /// as read by the last layout pass. Empty when unknown.
+    var systemItemFrames: [CGRect] { get }
+    /// Lift the hiding for one user interaction. The caller re-collapses once
+    /// the system UI the interaction opened has gone.
+    func releaseForSystemItemClick()
+}
+
+extension MenuBarEngine {
+    var blocksSystemItemClicks: Bool { return false }
+    var systemItemFrames: [CGRect] { return [] }
+    func releaseForSystemItemClick() {}
 }
 
 enum MenuBarEngineState {

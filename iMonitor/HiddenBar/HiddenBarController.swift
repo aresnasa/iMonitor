@@ -28,6 +28,12 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     private let notchOverflowController = NotchOverflowController()
     private lazy var menuBarEngine: MenuBarEngine = MenuBarEngineFactory.make(items: self)
+    // Lets a click on macOS's own items (clock/calendar, Wi-Fi...) through while
+    // native hiding makes them inert; see SystemItemClickForwarder.
+    private var systemItemClickForwarder: SystemItemClickForwarder?
+    // The temporary reveal a forwarded system-item click needs.
+    private var systemItemRevealTimer: Timer?
+    private var systemItemRevealDeadline: Date?
 
     private var timer: Timer?
     private var isToggle = false
@@ -89,6 +95,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         setupUI()
         restoreRemovedStatusItems()
         setupPointerMonitors()
+        systemItemClickForwarder = SystemItemClickForwarder(controller: self)
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleScreenParametersChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -139,6 +146,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         NotificationCenter.default.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
         hoverDwellTimer?.invalidate()
+        systemItemRevealTimer?.invalidate()
+        systemItemClickForwarder?.tearDown()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
         }
@@ -152,6 +161,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     func tearDown() {
         timer?.invalidate()
         timer = nil
+        systemItemRevealTimer?.invalidate()
+        systemItemRevealTimer = nil
+        systemItemClickForwarder?.tearDown()
+        systemItemClickForwarder = nil
         cancelHoverDwell()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
@@ -362,6 +375,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             timer = nil
             autoCollapseIfNeeded()
         }
+        // A forwarded click on a system item has already lifted the hiding for
+        // one interaction; its own monitor re-hides when the system UI closes.
+        // Re-asserting here would dismiss the calendar/menu that click opened.
+        guard systemItemRevealTimer == nil else { return }
         scheduleCollapseReassertion(after: 1.0)
     }
 
@@ -369,6 +386,85 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         hoverDwellTimer?.invalidate()
         hoverDwellTimer = nil
         hoverAnchor = nil
+    }
+
+    // MARK: - State
+
+    // MARK: - System items under native hiding
+
+    /// Whether a click on one of macOS's own items has to be forwarded: only
+    /// while native hiding holds the bar (the restriction makes them inert),
+    /// and only while the user wants it collapsed.
+    var forwardsSystemItemClicks: Bool {
+        return AppConfig.hideMenuBarEnabled && wantsCollapsed && isCollapsed
+            && menuBarEngine.blocksSystemItemClicks
+    }
+
+    func isSystemItemClick(at point: NSPoint) -> Bool {
+        return menuBarEngine.systemItemFrames.contains { $0.contains(point) }
+    }
+
+    /// Release the hiding for one click on a system item. The click itself is
+    /// replayed by SystemItemClickForwarder once the bar has relaid out; the
+    /// bar hides again when the UI it opened (calendar, Wi-Fi menu, …) closes.
+    func beginTemporaryRevealForSystemItemClick() {
+        guard forwardsSystemItemClicks, systemItemRevealTimer == nil else { return }
+        AppLogger.info("HiddenBar: temporarily revealing for a system menu-bar item")
+        menuBarEngine.releaseForSystemItemClick()
+        systemItemRevealDeadline = Date().addingTimeInterval(60)
+        systemItemRevealTimer?.invalidate()
+        systemItemRevealTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) {
+            [weak self] _ in
+            self?.systemItemRevealTick()
+        }
+    }
+
+    private func systemItemRevealTick() {
+        guard wantsCollapsed else {
+            stopSystemItemReveal()
+            return
+        }
+        // Keep the reveal while a system UI is up or the user is still busy in
+        // the bar; the calendar/Wi-Fi menu disappears when they are done.
+        let systemUIOpen =
+            isExternalMenuTracking || Self.isPopUpMenuOnScreen || Self.isSystemBannerOnScreen
+        if systemUIOpen || isMouseInMenuBar || NSEvent.pressedMouseButtons != 0 {
+            // Safety valve: never stay revealed forever if a system UI's window
+            // cannot be recognised. Extend rather than yank the bar away while
+            // the pointer is still in it.
+            if let deadline = systemItemRevealDeadline, Date() >= deadline {
+                systemItemRevealDeadline = Date().addingTimeInterval(60)
+            }
+            return
+        }
+        AppLogger.info("HiddenBar: re-hiding after the system menu-bar item")
+        stopSystemItemReveal()
+        menuBarEngine.invalidateLayout()
+        collapseIfPossible()
+    }
+
+    private func stopSystemItemReveal() {
+        systemItemRevealTimer?.invalidate()
+        systemItemRevealTimer = nil
+        systemItemRevealDeadline = nil
+    }
+
+    /// Notification Center (what the clock opens) lives in its own process and
+    /// uses a normal window level; no menu is tracking for it, so the bar would
+    /// re-hide and dismiss it without this check.
+    private static var isSystemBannerOnScreen: Bool {
+        guard
+            let center = NSWorkspace.shared.runningApplications.first(where: {
+                $0.bundleIdentifier?.contains("notificationcenter") == true
+            })
+        else { return false }
+        let windows =
+            CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+            as? [[String: Any]] ?? []
+        return windows.contains {
+            ($0[kCGWindowOwnerPID as String] as? Int) == Int(center.processIdentifier)
+                && (($0[kCGWindowLayer as String] as? Int) ?? 0) > 0
+        }
     }
 
     // MARK: - State
@@ -531,6 +627,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private func didCollapseMenuBar() {
         wantsCollapsed = true
         isExpandedByHover = false
+        systemItemClickForwarder?.ensureInstalled()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.collapseImage
             button.toolTip = Self.collapsedArrowTooltip
@@ -582,7 +679,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     /// lets the relayout that reset the separator settle first. Idempotent when
     /// nothing was reset.
     private func scheduleCollapseReassertion(after delay: TimeInterval) {
-        guard wantsCollapsed else { return }
+        guard wantsCollapsed, systemItemRevealTimer == nil else { return }
         collapseReassertWorkItem?.cancel()
         let item = DispatchWorkItem { [weak self] in
             guard let self = self, self.wantsCollapsed else { return }
