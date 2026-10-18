@@ -15,7 +15,10 @@
 //  bar is collapsed, swallows it, releases the restriction for one interaction
 //  (see HiddenBarController.beginTemporaryReveal), and replays the click after
 //  the bar has relaid out. The bar re-hides once the system UI the click opened
-//  (calendar, Wi-Fi menu, Control Center) has gone.
+//  (calendar, Wi-Fi menu, Control Center) has gone. The revealed icons are
+//  visible for that period - lifting the restriction is the only way to make
+//  macOS's own items respond, and any cover drawn over them would not match the
+//  menu bar's wallpaper-tinted material.
 //
 //  A session event tap is the only pre-dispatch hook available: a global
 //  NSEvent monitor cannot swallow the click or act before the item sees it.

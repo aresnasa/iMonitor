@@ -449,7 +449,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         systemItemRevealDeadline = nil
     }
 
-    // MARK: - Reveal overlay
+    // MARK: - System UI detection
 
     /// Notification Center (what the clock opens) lives in its own process and
     /// uses a normal window level; no menu is tracking for it, so the bar would
