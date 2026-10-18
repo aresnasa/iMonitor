@@ -206,12 +206,10 @@ final class SystemItemClickForwarder {
             ? String(identifier.dropFirst(itemPrefix.count)) : identifier
     }
 
-    // Global-monitor events carry screen coordinates with a bottom-left origin;
-    // Accessibility frames use a top-left origin on the primary screen.
+    // Accessibility frames use a top-left origin on the primary screen; event
+    // locations a bottom-left one.
     private static func accessibilityPoint(of event: NSEvent) -> CGPoint {
-        let location =
-            event.window.map { $0.convertPoint(toScreen: event.locationInWindow) }
-            ?? event.locationInWindow
+        let location = event.screenLocation
         let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
         return CGPoint(x: location.x, y: primaryTop - location.y)
     }
@@ -387,5 +385,14 @@ final class SystemItemClickForwarder {
             let value = value, CFGetTypeID(value) == AXUIElementGetTypeID()
         else { return nil }
         return (value as! AXUIElement)
+    }
+}
+
+extension NSEvent {
+    /// Where the event happened, in screen coordinates (bottom-left origin).
+    /// A global monitor's events have no window: theirs is that already.
+    var screenLocation: NSPoint {
+        guard let window = window else { return locationInWindow }
+        return window.convertPoint(toScreen: locationInWindow)
     }
 }

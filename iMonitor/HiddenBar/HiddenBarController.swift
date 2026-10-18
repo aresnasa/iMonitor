@@ -234,21 +234,24 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     }
 
     private func handleGlobalClick(_ event: NSEvent) {
-        switch event.type {
-        case .leftMouseUp:
+        if event.type == .leftMouseUp {
             // Wherever it lands: the forwarder only acts on the release of a
             // press it saw begin on one of macOS's items.
             systemItemClickForwarder.mouseUp(event)
-        case .leftMouseDown:
+            return
+        }
+        if event.type == .leftMouseDown {
             // A new press supersedes one whose release this monitor never saw
             // (released over this app's own windows).
             systemItemClickForwarder.cancel()
-            guard isMouseInMenuBar else { return }
-            handleMenuBarClick()
+        }
+        // Where the click happened, not where the pointer is by now: the
+        // monitor hears of it some milliseconds late, and a hand already on
+        // its way out of the bar would otherwise lose the click.
+        guard Self.menuBarScreen(containing: event.screenLocation) != nil else { return }
+        handleMenuBarClick()
+        if event.type == .leftMouseDown {
             systemItemClickForwarder.mouseDown(event)
-        default:
-            guard isMouseInMenuBar else { return }
-            handleMenuBarClick()
         }
     }
 
