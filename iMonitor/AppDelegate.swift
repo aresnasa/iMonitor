@@ -302,6 +302,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePanel(_ sender: AnyObject?) {
+        // A replayed system-item click belongs to the menu bar, never to this
+        // status item; without this a layout shift can land it here and open
+        // the panel/dropdown the user did not ask for.
+        if SystemItemClickForwarder.isReplayEvent(NSApp.currentEvent) { return }
         // Right-click on the status bar item opens the gear menu instead of
         // toggling the panel. `sendAction(on: [.leftMouseUp, .rightMouseUp])`
         // is set on the button, so we inspect the current event type.
@@ -564,6 +568,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// that button's own action: the list is only shown after an async
     /// snapshot (see NotchOverflowController.showOverflowMenu).
     func showMenuBarItemsDropdown() {
+        AppLogger.info("Panel: showing the menu-bar items dropdown")
         guard let controller = menuBarOverflowController else { return }
         if #available(macOS 14.0, *) {
             NSApp.activate()

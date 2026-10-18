@@ -148,6 +148,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         hoverDwellTimer?.invalidate()
         systemItemRevealTimer?.invalidate()
         systemItemClickForwarder?.tearDown()
+        hideSystemItemRevealOverlay()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
         }
@@ -165,6 +166,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         systemItemRevealTimer = nil
         systemItemClickForwarder?.tearDown()
         systemItemClickForwarder = nil
+        hideSystemItemRevealOverlay()
         cancelHoverDwell()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
@@ -410,6 +412,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     func beginTemporaryRevealForSystemItemClick() {
         guard forwardsSystemItemClicks, systemItemRevealTimer == nil else { return }
         AppLogger.info("HiddenBar: temporarily revealing for a system menu-bar item")
+        // Lift the restriction; the replayed click needs an interactive item.
         menuBarEngine.releaseForSystemItemClick()
         systemItemRevealDeadline = Date().addingTimeInterval(60)
         systemItemRevealTimer?.invalidate()
@@ -448,6 +451,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         systemItemRevealTimer = nil
         systemItemRevealDeadline = nil
     }
+
+    // MARK: - Reveal overlay
 
     /// Notification Center (what the clock opens) lives in its own process and
     /// uses a normal window level; no menu is tracking for it, so the bar would
@@ -507,6 +512,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // MARK: - Actions
 
     @objc private func toggleButtonPressed(sender: NSStatusBarButton) {
+        // The replay of a forwarded system-item click must never drive this
+        // arrow (expand/collapse or the double-click items list).
+        if SystemItemClickForwarder.isReplayEvent(NSApp.currentEvent) { return }
         // A click on the arrow is a click in the bar too, one the global
         // monitor never sees: no hover reveal may follow right after it.
         isHoverSuppressed = true
@@ -523,7 +531,15 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             clickCount: clickCount)
         {
         case .toggle:
-            toggleExpandedCollapsed()
+            // During a forwarded system-item click the restriction is briefly
+            // lifted (wantsCollapsed stays true); a click on the arrow there
+            // means "hide again", not the expand an expanded bar would get.
+            if systemItemRevealTimer != nil {
+                stopSystemItemReveal()
+                collapseIfPossible()
+            } else {
+                toggleExpandedCollapsed()
+            }
         case .showItemsList:
             showItemsListAfterDoubleClick()
         case .ignore:
@@ -569,6 +585,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // feature a double-click is just a click, and the first one's toggle
     // stands.
     private func showItemsListAfterDoubleClick() {
+        AppLogger.info("HiddenBar: arrow double-click -> menu-bar items list")
         guard AppConfig.notchOverflowEnabled else { return }
         if !wantsCollapsed {
             // Mid-collapse (the first click collapsed an expanded bar), the

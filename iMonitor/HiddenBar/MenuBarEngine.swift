@@ -36,6 +36,10 @@ protocol MenuBarEngine: AnyObject {
     /// Frames of those system items, in screen coordinates (top-left origin),
     /// as read by the last layout pass. Empty when unknown.
     var systemItemFrames: [CGRect] { get }
+    /// Frames of the items the hiding currently covers, in the same coordinate
+    /// space. Used to keep them visually hidden while the restriction is lifted
+    /// for a system-item click (see HiddenBarController).
+    var hiddenItemFrames: [CGRect] { get }
     /// Lift the hiding for one user interaction. The caller re-collapses once
     /// the system UI the interaction opened has gone.
     func releaseForSystemItemClick()
@@ -44,6 +48,7 @@ protocol MenuBarEngine: AnyObject {
 extension MenuBarEngine {
     var blocksSystemItemClicks: Bool { return false }
     var systemItemFrames: [CGRect] { return [] }
+    var hiddenItemFrames: [CGRect] { return [] }
     func releaseForSystemItemClick() {}
 }
 

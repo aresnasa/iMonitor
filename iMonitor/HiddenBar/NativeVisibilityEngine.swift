@@ -47,6 +47,10 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // from an unrestricted bar. Their positions are trailing-anchored, so the
     // pre-collapse read is still where they are once the apps' items hide.
     private(set) var systemItemFrames: [CGRect] = []
+    // The items the restriction is hiding, from the same read. While the
+    // restriction is briefly lifted for a system-item click, these frames are
+    // covered so the hidden icons never appear on screen.
+    private(set) var hiddenItemFrames: [CGRect] = []
     // Bumped whenever a pending activation must no longer win (an expand, a newer
     // activation); a late success is then invalidated straight away.
     private var generation = 0
@@ -170,6 +174,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
             self.systemItemFrames = inventory.filter { item in
                 guard let bundle = item.bundleIdentifier else { return false }
                 return MenuBarLayoutResolver.systemItemOwners.contains(bundle)
+            }.map(\.frame)
+            // Same read, the other half: where the icons the restriction is
+            // about to hide sit. These are the frames the temporary reveal
+            // covers so they never show while a system item is clicked.
+            let hiddenBundles = Set(layout.bundles(in: [.hidden]))
+            self.hiddenItemFrames = inventory.filter { item in
+                guard let bundle = item.bundleIdentifier else { return false }
+                return hiddenBundles.contains(bundle)
             }.map(\.frame)
             self.layout = layout
             body(layout)

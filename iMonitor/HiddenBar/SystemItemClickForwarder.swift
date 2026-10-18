@@ -34,7 +34,16 @@ final class SystemItemClickForwarder {
 
     // Marker carried by the replayed pair so the tap passes it through instead
     // of forwarding it again.
-    private static let replayMarker: Int64 = 0x694D_6F6E  // "iMon"
+    static let replayMarker: Int64 = 0x694D_6F6E  // "iMon"
+
+    /// True for the synthetic click this forwarder replays. iMonitor's own
+    /// status-item actions ignore these: a forwarded system-item click must
+    /// never open the panel or the hidden-icons list, whatever the layout does
+    /// between the swallow and the replay.
+    static func isReplayEvent(_ event: NSEvent?) -> Bool {
+        guard let cgEvent = event?.cgEvent else { return false }
+        return cgEvent.getIntegerValueField(.eventSourceUserData) == replayMarker
+    }
     // Time for the native restriction to be released and the bar to relayout
     // before the replayed click is delivered. Measured: the click is still
     // lost at 0.15 s, consistently lands at 0.25 s.
@@ -126,11 +135,9 @@ final class SystemItemClickForwarder {
                 return Unmanaged.passUnretained(event)
             }
             swallowNextMouseUp = true
-            // Release the restriction now; the replayed click below is what
-            // actually reaches the item.
-            DispatchQueue.main.async { [weak controller] in
-                controller?.beginTemporaryRevealForSystemItemClick()
-            }
+            // The tap source runs on the main runloop, so the restriction is
+            // lifted synchronously, before the replayed click below.
+            controller.beginTemporaryRevealForSystemItemClick()
             guard let replayDown = event.copy(),
                 let replayUp = CGEvent(
                     mouseEventSource: nil, mouseType: .leftMouseUp,
@@ -143,6 +150,7 @@ final class SystemItemClickForwarder {
             DispatchQueue.global(qos: .userInteractive).asyncAfter(
                 deadline: .now() + Self.replayDelay
             ) {
+                AppLogger.info("HiddenBar: replaying the system-item click")
                 replayDown.post(tap: .cghidEventTap)
                 usleep(40_000)
                 replayUp.post(tap: .cghidEventTap)
