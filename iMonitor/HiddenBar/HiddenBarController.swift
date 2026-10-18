@@ -148,7 +148,6 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         hoverDwellTimer?.invalidate()
         systemItemRevealTimer?.invalidate()
         systemItemClickForwarder?.tearDown()
-        hideSystemItemRevealOverlay()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
         }
@@ -163,10 +162,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         timer?.invalidate()
         timer = nil
         systemItemRevealTimer?.invalidate()
-        systemItemRevealTimer = nil
         systemItemClickForwarder?.tearDown()
         systemItemClickForwarder = nil
-        hideSystemItemRevealOverlay()
         cancelHoverDwell()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
