@@ -26,6 +26,34 @@ protocol MenuBarEngine: AnyObject {
     // Display geometry changed. Re-applies the collapse to the live items when
     // collapsed, so a hot-plug does not leave a stale length behind.
     func invalidateLayout()
+
+    // MARK: - macOS's own items
+
+    // Whether this engine's hiding leaves macOS's own menu-bar items (the
+    // clock/calendar, Wi-Fi, Control Center...) visible but inert, so a click
+    // on one has to be helped through (see SystemItemClickForwarder). macOS
+    // 27's native hiding does; the legacy length engine never touches them.
+    var blocksSystemItemClicks: Bool { get }
+
+    // Lifts the hiding for a moment - the hidden icons pop out - runs `press`
+    // once macOS's items respond again, then puts the hiding back. The state
+    // stays .collapsed throughout, since the hiding the user asked for still
+    // stands. Returns false, running nothing, when there is no hiding to
+    // lift. The completion reports the re-applied hiding on the main queue;
+    // it is not called when an expand() overtook the lift.
+    func liftHidingBriefly(
+        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+    ) -> Bool
+}
+
+extension MenuBarEngine {
+    var blocksSystemItemClicks: Bool { return false }
+
+    func liftHidingBriefly(
+        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+    ) -> Bool {
+        return false
+    }
 }
 
 enum MenuBarEngineState {
