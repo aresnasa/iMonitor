@@ -29,14 +29,14 @@ protocol MenuBarEngine: AnyObject {
 
     // MARK: - macOS's own items
 
-    // Whether this engine's hiding leaves macOS's own menu-bar items (the
-    // clock/calendar, Wi-Fi, Control Center...) visible but inert, so a click
-    // on one has to be helped through (see SystemItemClickForwarder). macOS
-    // 27's native hiding does; the legacy length engine never touches them.
+    // Whether this engine's hiding leaves one of macOS's own menu-bar items -
+    // the clock, which opens the calendar/widgets panel - visible but inert, so
+    // a click on it has to be helped through (see SystemItemClickForwarder).
+    // macOS 27's native hiding does; the legacy length engine never touches it.
     var blocksSystemItemClicks: Bool { get }
 
     // Lifts the hiding for a moment - the hidden icons pop out - runs `press`
-    // once macOS's items respond again, then puts the hiding back. The state
+    // once the clock responds again, then puts the hiding back. The state
     // stays .collapsed throughout, since the hiding the user asked for still
     // stands. Returns false, running nothing, when there is no hiding to
     // lift. The completion reports the re-applied hiding on the main queue;

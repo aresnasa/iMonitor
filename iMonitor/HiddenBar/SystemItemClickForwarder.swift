@@ -6,33 +6,32 @@
 import ApplicationServices
 import Cocoa
 
-// macOS 27's native hiding keeps macOS's own menu-bar items - the clock /
-// calendar, Wi-Fi, Control Center... - on the bar, but inert: a click on one
-// does nothing while the other icons are hidden. This passes such a click
-// through. On the click's mouse-up the hiding is lifted for a moment (the
-// hidden icons pop out to the left), the clicked item is pressed through
-// Accessibility, and the hiding goes straight back on (see
-// MenuBarEngine.liftHidingBriefly). The calendar/widgets panel or the menu the
-// press opened stays up: Notification Center and Control Center are in the
-// native engine's allow-list.
+// macOS 27's native hiding (the menu bar's assessment mode) keeps the clock on
+// the bar but makes it inert: a click on it does not open the calendar/widgets
+// panel while the other icons are hidden, whatever the allow-list holds. (Wi-Fi,
+// Control Center and the rest of Control Center's items keep working: its
+// bundle is allowed.) This passes a click on the clock through. On the click's
+// mouse-up the hiding is lifted for a moment - the hidden icons pop out to the
+// left - the clock is pressed through Accessibility, and the hiding goes
+// straight back on (see MenuBarEngine.liftHidingBriefly). The panel stays up:
+// Notification Center, which owns it, is in the native engine's allow-list.
 //
-// The item is pressed with AXPress rather than by replaying the click: a
+// The clock is pressed with AXPress rather than by replaying the click: a
 // replayed click is a real click and lands on whatever sits under the pointer
 // once it is posted, while AXPress reaches exactly the item clicked.
 //
 // Measured on macOS 27.0.1:
-// - A global monitor sees the mouse-down/up on these items while they are
-//   inert, and Accessibility still lists them under MenuBarAgent, with their
-//   frames. They are trailing-anchored: the hiding does not move them.
-// - A click on an item whose panel or menu is open closes it by itself
-//   (click-outside); pressing the item as well would open it again. Whether it
-//   is open is therefore read on mouse-down, before that closing starts (its
-//   content is gone about 0.36 s later).
-// - Notification Center shows banners in the very window its calendar panel
-//   uses, so the panel is told apart by its content, not by its window.
+// - A global monitor sees the mouse-down/up on the inert clock, and
+//   Accessibility still lists it under MenuBarAgent with its frame. It is
+//   trailing-anchored: lifting the hiding does not move it.
+// - A click on the clock while its panel is open closes the panel by itself
+//   (click-outside); pressing the clock as well would open it again. Whether
+//   the panel is open is therefore read on mouse-down, before that closing
+//   starts (the panel's content is gone about 0.36 s later).
+// - Notification Center shows banners in the very window the panel uses, so
+//   the panel is told apart by its content, not by its window.
 final class SystemItemClickForwarder {
     private struct Item {
-        let identifier: String
         let element: AXUIElement
         // The item's slot, as tall as the bar: a click flung against the top
         // edge of the screen still counts.
@@ -41,28 +40,25 @@ final class SystemItemClickForwarder {
 
     private struct PendingClick {
         let item: Item
-        // Every item's module on the bar, to tell whose Control Center UI is up.
-        let modules: Set<String>
-        // Whether the item's panel or menu was open at the mouse-down; nil when
-        // that could not be told.
-        let openState: Bool?
+        // Whether the panel was open at the mouse-down; nil when that could not
+        // be told.
+        let wasOpen: Bool?
     }
 
     private static let menuBarAgent = "com.apple.MenuBarAgent"
     private static let notificationCenter = "com.apple.notificationcenterui"
-    private static let controlCenter = "com.apple.controlcenter"
-    private static let itemPrefix = "com.apple.menuextra."
+    // The one item the restriction leaves inert, as MenuBarAgent identifies it.
     private static let clock = "com.apple.menuextra.clock"
 
-    // What only Notification Center's calendar/widgets panel holds - widgets,
-    // the widget editor button, the notification list - and a banner does not.
+    // What only the calendar/widgets panel holds - widgets, the widget editor
+    // button, the notification list - and a banner does not.
     private static let panelMarkerIdentifiers: Set<String> = [
         "widget-editor-button", "AXNotificationListItems",
     ]
     private static let panelMarkerRole = "AXOpaqueProviderGroup"
 
     // Accessibility runs on the main thread here, inside a click: bounded so a
-    // busy system process cannot stall the app. A full query takes 20-60 ms.
+    // busy system process cannot stall the app. A full panel query takes 20-60 ms.
     private static let messagingTimeout: Float = 0.1
     private static let pressTimeout: Float = 0.25
     private static let queryBudget: TimeInterval = 0.15
@@ -74,8 +70,8 @@ final class SystemItemClickForwarder {
     private var pending: PendingClick?
 
     /// - Parameters:
-    ///   - isActive: whether macOS's items are inert right now, i.e. the
-    ///     user wants the bar collapsed and the engine's hiding blocks them.
+    ///   - isActive: whether the clock is inert right now, i.e. the user wants
+    ///     the bar collapsed and the engine's hiding blocks it.
     ///   - liftHiding: lifts the hiding briefly around the given press
     ///     (MenuBarEngine.liftHidingBriefly); false when it cannot.
     init(
@@ -90,16 +86,12 @@ final class SystemItemClickForwarder {
     func mouseDown(_ event: NSEvent) {
         pending = nil
         // ⌘-drag rearranges and ⌃-click asks for a context menu: neither is
-        // the item's plain press.
-        guard event.modifierFlags.intersection([.command, .control]).isEmpty, isActive()
+        // the clock's plain press.
+        guard event.modifierFlags.intersection([.command, .control]).isEmpty, isActive(),
+            let clock = Self.clockItem(),
+            clock.frame.contains(Self.accessibilityPoint(of: event))
         else { return }
-        let point = Self.accessibilityPoint(of: event)
-        let items = Self.menuBarItems()
-        guard let item = items.first(where: { $0.frame.contains(point) }) else { return }
-        let modules = Set(items.map { Self.module(of: $0.identifier) })
-        pending = PendingClick(
-            item: item, modules: modules,
-            openState: Self.isUIOpen(of: item.identifier, modules: modules))
+        pending = PendingClick(item: clock, wasOpen: Self.isPanelOpen())
     }
 
     /// A left mouse-up anywhere, from a global monitor.
@@ -107,46 +99,40 @@ final class SystemItemClickForwarder {
         guard let click = pending else { return }
         pending = nil
         let item = click.item
-        // Released off the item: a drag, not a click.
+        // Released off the clock: a drag, not a click.
         guard item.frame.contains(Self.accessibilityPoint(of: event)), isActive() else { return }
-        switch click.openState {
+        switch click.wasOpen {
         case false?:
             break
         case true?:
-            AppLogger.info(
-                "HiddenBar: \(item.identifier) clicked with its panel/menu open; the click closes it"
-            )
+            AppLogger.info("HiddenBar: clock clicked with its panel open; the click closes it")
             return
         case nil:
-            // A click left alone costs a second click; pressing an item whose
-            // panel is open closes the panel and opens it again.
+            // A click left alone costs a second click; pressing the clock with
+            // the panel open closes the panel and opens it again.
             AppLogger.info(
-                "HiddenBar: \(item.identifier) clicked, but whether its panel/menu is open "
-                    + "cannot be told; not pressing it")
+                "HiddenBar: clock clicked, but whether its panel is open cannot be told; "
+                    + "not pressing it")
             return
         }
-        // Up already: the bar was briefly unrestricted (another item's press)
-        // and the click itself went through.
-        if Self.isUIOpen(of: item.identifier, modules: click.modules) == true {
-            AppLogger.info(
-                "HiddenBar: \(item.identifier) opened by the click itself; not pressing it")
+        // Up already: the hiding was lifted for a moment (for the click before)
+        // and this click went through by itself.
+        if Self.isPanelOpen() == true {
+            AppLogger.info("HiddenBar: clock panel opened by the click itself; not pressing it")
             return
         }
-        let modules = click.modules
         let started = liftHiding {
             Self.press(item)
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.verifyDelay) {
-                let state = Self.isUIOpen(of: item.identifier, modules: modules)
                 AppLogger.info(
-                    "HiddenBar: \(item.identifier) panel/menu \(Self.describe(state)) "
+                    "HiddenBar: clock panel \(Self.describe(Self.isPanelOpen())) "
                         + "\(Self.verifyDelay) s after the press")
             }
         }
         AppLogger.info(
             started
-                ? "HiddenBar: \(item.identifier) clicked while hidden; lifting the hiding to press it"
-                : "HiddenBar: \(item.identifier) clicked while hidden; the hiding cannot be lifted now"
-        )
+                ? "HiddenBar: clock clicked while hidden; lifting the hiding to press it"
+                : "HiddenBar: clock clicked while hidden; the hiding cannot be lifted now")
     }
 
     /// Drops a click in progress (the bar is being expanded, or the feature
@@ -155,55 +141,40 @@ final class SystemItemClickForwarder {
         pending = nil
     }
 
-    // MARK: - Pressing
+    // MARK: - The clock
 
-    // AXPress on the clicked item, looked up again if its element went stale
-    // since the mouse-down. Not retried otherwise: the press toggles, and a
+    // AXPress on the clock, looked up again if its element went stale since the
+    // mouse-down. Not retried otherwise: the press toggles the panel, and a
     // second one would close what a slow first one opens.
     private static func press(_ item: Item) {
         AXUIElementSetMessagingTimeout(item.element, pressTimeout)
         var result = AXUIElementPerformAction(item.element, kAXPressAction as CFString)
-        if result == .invalidUIElement,
-            let fresh = menuBarItems().first(where: { $0.identifier == item.identifier })
-        {
+        if result == .invalidUIElement, let fresh = clockItem() {
             AXUIElementSetMessagingTimeout(fresh.element, pressTimeout)
             result = AXUIElementPerformAction(fresh.element, kAXPressAction as CFString)
         }
         if result != .success {
-            AppLogger.warn(
-                "HiddenBar: pressing \(item.identifier) failed (AXError \(result.rawValue))")
+            AppLogger.warn("HiddenBar: pressing the clock failed (AXError \(result.rawValue))")
         }
     }
 
-    // MARK: - Items
-
-    // macOS's own items, as MenuBarAgent hosts them: each in a slot (an AXGroup
-    // as tall as the bar) under its AXExtrasMenuBar.
-    private static func menuBarItems() -> [Item] {
+    // MenuBarAgent hosts macOS's own items, each in a slot (an AXGroup as tall
+    // as the bar) under its AXExtrasMenuBar.
+    private static func clockItem() -> Item? {
         guard let agent = application(menuBarAgent),
             let bar = elementAttribute(agent, "AXExtrasMenuBar")
-        else { return [] }
-        var items: [Item] = []
+        else { return nil }
         for slot in children(of: bar) {
-            for element in [slot] + children(of: slot) {
-                guard let identifier = string(element, kAXIdentifierAttribute),
-                    identifier.hasPrefix(itemPrefix)
-                else { continue }
+            for element in [slot] + children(of: slot)
+            where string(element, kAXIdentifierAttribute) == clock {
                 let slotFrame = AccessibilityMenuBarInventory.frame(of: slot) ?? .null
                 let frame = slotFrame.union(
                     AccessibilityMenuBarInventory.frame(of: element) ?? .null)
-                guard !frame.isNull else { continue }
-                items.append(Item(identifier: identifier, element: element, frame: frame))
+                guard !frame.isNull else { return nil }
+                return Item(element: element, frame: frame)
             }
         }
-        return items
-    }
-
-    // "com.apple.menuextra.wifi" -> "wifi", the prefix of the AX identifiers in
-    // the Wi-Fi menu ("wifi-header", "wifi-network-...").
-    private static func module(of identifier: String) -> String {
-        return identifier.hasPrefix(itemPrefix)
-            ? String(identifier.dropFirst(itemPrefix.count)) : identifier
+        return nil
     }
 
     // Accessibility frames use a top-left origin on the primary screen; event
@@ -214,45 +185,13 @@ final class SystemItemClickForwarder {
         return CGPoint(x: location.x, y: primaryTop - location.y)
     }
 
-    // MARK: - Whether an item's UI is open
+    // MARK: - Whether the panel is open
 
-    // Whether the panel or menu `identifier` opens is on screen; nil when it
-    // cannot be told. The clock's panel belongs to Notification Center, every
-    // other item's UI to Control Center.
-    private static func isUIOpen(of identifier: String, modules: Set<String>) -> Bool? {
-        let owner = identifier == clock ? notificationCenter : controlCenter
-        guard let pid = processIdentifier(of: owner), hasRaisedWindow(pid: pid) else {
-            return false
-        }
-        if identifier == clock {
-            return notificationCenterShowsPanel(pid: pid)
-        }
-        return controlCenterShows(module(of: identifier), among: modules, pid: pid)
-    }
-
-    // The cheap first check: with no window of its own above the desktop
-    // (the bar's levels aside), the process shows no panel or menu.
-    private static func hasRaisedWindow(pid: pid_t) -> Bool {
-        let barLevels: Set<Int> = [
-            Int(CGWindowLevelForKey(.mainMenuWindow)), Int(CGWindowLevelForKey(.statusWindow)),
-        ]
-        guard
-            let windows = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-                as? [[String: Any]]
-        else { return true }
-        return windows.contains { window in
-            guard (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid
-            else { return false }
-            let layer = (window[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
-            let alpha = (window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
-            return layer > 0 && !barLevels.contains(layer) && alpha > 0
-        }
-    }
-
-    // Notification Center's window shows the calendar/widgets panel, not just
-    // banners.
-    private static func notificationCenterShowsPanel(pid: pid_t) -> Bool? {
+    // Whether Notification Center shows the calendar/widgets panel; nil when
+    // that cannot be told.
+    private static func isPanelOpen() -> Bool? {
+        guard let pid = processIdentifier(of: notificationCenter), hasRaisedWindow(pid: pid)
+        else { return false }
         let deadline = Date().addingTimeInterval(queryBudget)
         guard let dialogs = systemDialogs(of: pid) else { return nil }
         for dialog in dialogs {
@@ -270,33 +209,24 @@ final class SystemItemClickForwarder {
         return false
     }
 
-    // Control Center shows `module`'s menu or panel. Its UIs are told apart by
-    // their AX identifiers: the Wi-Fi menu's start with "wifi-", the Control
-    // Center panel's with "controlcenter-". A UI matching no module on the bar
-    // (Now Playing's, for one) leaves the answer open.
-    private static func controlCenterShows(
-        _ module: String, among modules: Set<String>, pid: pid_t
-    ) -> Bool? {
-        let deadline = Date().addingTimeInterval(queryBudget)
-        guard let dialogs = systemDialogs(of: pid) else { return nil }
-        var hasUnattributedUI = false
-        for dialog in dialogs {
-            var owners: Set<String> = []
-            let found = search(dialog, depth: 3, deadline: deadline) { element in
-                if let identifier = string(element, kAXIdentifierAttribute),
-                    let owner = modules.first(where: { identifier.hasPrefix($0 + "-") })
-                {
-                    owners.insert(owner)
-                }
-                return owners.contains(module)
-            }
-            guard let isModule = found else { return nil }
-            if isModule { return true }
-            if owners.isEmpty {
-                hasUnattributedUI = true
-            }
+    // The cheap first check: with no window of its own above the desktop
+    // (the bar's levels aside), the process shows neither panel nor banner.
+    private static func hasRaisedWindow(pid: pid_t) -> Bool {
+        let barLevels: Set<Int> = [
+            Int(CGWindowLevelForKey(.mainMenuWindow)), Int(CGWindowLevelForKey(.statusWindow)),
+        ]
+        guard
+            let windows = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]]
+        else { return true }
+        return windows.contains { window in
+            guard (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid
+            else { return false }
+            let layer = (window[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
+            let alpha = (window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
+            return layer > 0 && !barLevels.contains(layer) && alpha > 0
         }
-        return hasUnattributedUI ? nil : false
     }
 
     private static func describe(_ state: Bool?) -> String {
@@ -322,8 +252,7 @@ final class SystemItemClickForwarder {
     }
 
     // The process's panel-like windows (Notification Center's panel and
-    // banners, Control Center's menus and panel); nil when Accessibility does
-    // not answer.
+    // banners); nil when Accessibility does not answer.
     private static func systemDialogs(of pid: pid_t) -> [AXUIElement]? {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, messagingTimeout)

@@ -22,8 +22,9 @@ import Cocoa
 //   (the most visible section wins).
 // - macOS's own items (clock, Wi-Fi, Control Center...) are always kept visible:
 //   Accessibility cannot tell them apart, so they cannot be mapped to sections.
-//   They stay inert while the restriction holds, though; a click on one is
-//   passed through by lifting it for a moment (see liftHidingBriefly).
+//   The clock stays inert while the restriction holds, though; a click on it
+//   is passed through by lifting the restriction for a moment (see
+//   liftHidingBriefly).
 // - Sections are read only while nothing is hidden, because hidden items report
 //   stale positions. They are re-read on the next collapse from an unrestricted
 //   bar, so an app launched while collapsed stays hidden until then, the same as
@@ -55,13 +56,13 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private var isLifted = false
     private var liftID = 0
 
-    // Timings of a brief lift, measured on macOS 27.0.1. AXPress on a system
-    // item opened its UI 0.01 s after the release and did nothing at 0 s:
-    // the release takes a moment to reach the bar (5x margin here).
+    // Timings of a brief lift, measured on macOS 27.0.1. AXPress on the clock
+    // opened its panel 0.01 s after the release and did nothing at 0 s: the
+    // release takes a moment to reach the bar (5x margin here).
     private static let liftSettleDelay: TimeInterval = 0.05
-    // The panel or menu the press opens survives re-applying the restriction
-    // anywhere from right after AXPress returns to 0.2 s later; in between,
-    // the hidden icons show for a short flash.
+    // The panel the press opens survives re-applying the restriction anywhere
+    // from right after AXPress returns to 0.2 s later; in between, the hidden
+    // icons show for a short flash.
     private static let liftHoldAfterPress: TimeInterval = 0.1
 
     init(
@@ -155,13 +156,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
         }
     }
 
-    // The assessment mode behind this engine keeps macOS's own items visible
-    // but inert, Notification Center's clock included.
+    // The assessment mode behind this engine shows the clock but blocks its
+    // calendar/widgets panel, whatever the allow-list holds (measured: allowing
+    // MenuBarAgent, chronod or more system item ids changes nothing).
     var blocksSystemItemClicks: Bool {
         return true
     }
 
-    // Releases the restriction, presses once the items respond, and re-applies
+    // Releases the restriction, presses once the clock responds, and re-applies
     // the cached sections: a fresh read takes about a second - far longer than
     // the flash this is meant to be - and nothing was rearranged meanwhile.
     // The separator stays off the bar throughout.
@@ -237,8 +239,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
         // Without its bundle in the allow-list, re-applying the restriction
         // dismisses that panel; with it, the panel survives while the apps'
         // icons go back into hiding. (Measured: re-applying anywhere from right
-        // after the press to 0.2 s later keeps the panel open.) Control
-        // Center's panels and menus (Wi-Fi...) behave the same way.
+        // after the press to 0.2 s later keeps the panel open.) With Control
+        // Center allowed, its items (Wi-Fi, Control Center...) also keep
+        // working while the icons are hidden, and their menus stay open.
         let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
         let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles + systemUIBundles
         visibility.activate(

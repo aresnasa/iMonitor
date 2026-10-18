@@ -32,11 +32,11 @@ past the app's menus. Moving across the bar to an app menu or another icon, or
 clicking one, never reveals them, and a peek hides again once the pointer leaves
 the bar. The arrow itself never expands on hover, only on a click.
 
-On macOS 27 the system's own hiding mode keeps macOS's menu-bar items (the
-clock/calendar, Wi-Fi, Control Center) visible but unresponsive while the icons
-are hidden. iMonitor passes a click on one of them through: the hidden icons pop
-out for a moment, the calendar and widgets panel (or the item's menu) opens, and
-the icons hide again while the panel stays open.
+On macOS 27 the system's own hiding mode keeps the clock visible but
+unresponsive while the icons are hidden (Wi-Fi and Control Center keep working).
+iMonitor passes a click on the clock through: the hidden icons pop out for a
+moment, the calendar and widgets panel opens, and the icons hide again while the
+panel stays open.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear

@@ -15,9 +15,8 @@
 //  - the context menu carries iMonitor's own actions (Settings, Quit)
 //  - hiding mechanics live in a MenuBarEngine (legacy length inflation on
 //    macOS <= 26, native visibility on macOS 27)
-//  - on macOS 27 a click on macOS's own items (clock/calendar, Wi-Fi, Control
-//    Center), which native hiding leaves inert, is passed through by
-//    SystemItemClickForwarder
+//  - on macOS 27 a click on the clock, which native hiding leaves inert, still
+//    opens the calendar/widgets panel (SystemItemClickForwarder)
 //
 
 import Cocoa
@@ -224,8 +223,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // Clicks in the bar suppress hover reveals until the pointer leaves it.
         // They also schedule a re-assertion, a self-heal in case the
         // menu-tracking broadcasts ever stop arriving: a hiding that a foreign
-        // menu's relayout reset comes back on its own. Left clicks on macOS's
-        // own items go to SystemItemClickForwarder too, releases included.
+        // menu's relayout reset comes back on its own. Left clicks also go to
+        // SystemItemClickForwarder (the clock), releases included.
         menuBarClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown]
         ) { [weak self] event in
@@ -236,7 +235,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private func handleGlobalClick(_ event: NSEvent) {
         if event.type == .leftMouseUp {
             // Wherever it lands: the forwarder only acts on the release of a
-            // press it saw begin on one of macOS's items.
+            // press it saw begin on the clock.
             systemItemClickForwarder.mouseUp(event)
             return
         }
@@ -402,16 +401,15 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     // MARK: - macOS's own items under native hiding
 
-    /// Whether a click on one of macOS's own items needs passing through: only
-    /// while the user wants the bar collapsed and the engine's hiding leaves
-    /// those items inert (macOS 27's native hiding).
+    /// Whether a click on the clock needs passing through: only while the user
+    /// wants the bar collapsed and the engine's hiding leaves the clock inert
+    /// (macOS 27's native hiding).
     private var forwardsSystemItemClicks: Bool {
         return wantsCollapsed && isCollapsed && menuBarEngine.blocksSystemItemClicks
     }
 
-    /// Lifts the hiding around one press on a system item: the hidden icons pop
-    /// out for a moment and hide again, while the panel or menu the press
-    /// opened stays up.
+    /// Lifts the hiding around one press on the clock: the hidden icons pop out
+    /// for a moment and hide again, while the panel the press opened stays up.
     private func liftHidingForSystemItem(_ press: @escaping () -> Void) -> Bool {
         return menuBarEngine.liftHidingBriefly(for: press) { [weak self] result in
             switch result {
@@ -596,8 +594,8 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         AppLogger.info("HiddenBar: expanding the menu bar (\(reason))")
         wantsCollapsed = false
         isExpandedByHover = false
-        // The bar is about to be unrestricted: a click on one of macOS's items
-        // in progress goes through by itself now.
+        // The bar is about to be unrestricted: a click on the clock in
+        // progress goes through by itself now.
         systemItemClickForwarder.cancel()
         menuBarEngine.expand()
         if let button = toggleItem.button {
