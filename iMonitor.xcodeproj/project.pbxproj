@@ -44,6 +44,7 @@
 		BC66E4477878D921106D122C /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598007F9E4673ED0913AC8F2 /* AppConfig.swift */; };
 		BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */; };
 		BD7B2AA98199A5ED3623707B /* NettopRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B44EE509AF585A4BAD28AB /* NettopRunner.swift */; };
+		BEADC74B01EF371EDEA26146 /* SystemItemClickForwarder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B588EA33C2E793496B1D147 /* SystemItemClickForwarder.swift */; };
 		C1106A5112F6715D64000956 /* OverflowRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */; };
 		C298BD2EE61F5FB5771406CB /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38EEF68863702ED88B8279DE /* ContentView.swift */; };
 		C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */; };
@@ -89,6 +90,7 @@
 		7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchOverflow.swift; sourceTree = "<group>"; };
 		83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityEngine.swift; sourceTree = "<group>"; };
 		84EFC1D42659D5C8F8F609CA /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		8B588EA33C2E793496B1D147 /* SystemItemClickForwarder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemItemClickForwarder.swift; sourceTree = "<group>"; };
 		8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverflowRowView.swift; sourceTree = "<group>"; };
 		9FD928B9627F2D3CFF44DFB6 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
 		AF69C35735CF2BFD708A6FAF /* ListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListViewModel.swift; sourceTree = "<group>"; };
@@ -215,6 +217,7 @@
 				7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */,
 				5D9D619BAFBFD49B661551BC /* OverflowDragSession.swift */,
 				8D93416FD87367FD9E3DC73A /* OverflowRowView.swift */,
+				8B588EA33C2E793496B1D147 /* SystemItemClickForwarder.swift */,
 			);
 			path = HiddenBar;
 			sourceTree = "<group>";
@@ -350,6 +353,7 @@
 				3AC177B497FB429C5271E2FF /* StatusDataModel.swift in Sources */,
 				A5A256A3DC92704BEC98E9DB /* Store.swift in Sources */,
 				47317753BBB1D0935EE73079 /* SystemDataModel.swift in Sources */,
+				BEADC74B01EF371EDEA26146 /* SystemItemClickForwarder.swift in Sources */,
 				3F360029FD2DFB5A2F9B6A2B /* SystemMonitor.swift in Sources */,
 				AAB84D77962E2FAE195CF014 /* ThemeModel.swift in Sources */,
 				2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */,

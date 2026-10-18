@@ -22,6 +22,8 @@ import Cocoa
 //   (the most visible section wins).
 // - macOS's own items (clock, Wi-Fi, Control Center...) are always kept visible:
 //   Accessibility cannot tell them apart, so they cannot be mapped to sections.
+//   They stay inert while the restriction holds, though; a click on one is
+//   passed through by lifting it for a moment (see liftHidingBriefly).
 // - Sections are read only while nothing is hidden, because hidden items report
 //   stale positions. They are re-read on the next collapse from an unrestricted
 //   bar, so an app launched while collapsed stays hidden until then, the same as
@@ -47,6 +49,20 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // activation); a late success is then invalidated straight away.
     private var generation = 0
     private var lastUnavailableReason: String?
+
+    // Set from the release of a brief lift (liftHidingBriefly) until its hiding
+    // is back on; an expand() cancels it. liftID tells a stale step apart.
+    private var isLifted = false
+    private var liftID = 0
+
+    // Timings of a brief lift, measured on macOS 27.0.1. AXPress on a system
+    // item opened its UI 0.01 s after the release and did nothing at 0 s:
+    // the release takes a moment to reach the bar (5x margin here).
+    private static let liftSettleDelay: TimeInterval = 0.05
+    // The panel or menu the press opens survives re-applying the restriction
+    // anywhere from right after AXPress returns to 0.2 s later; in between,
+    // the hidden icons show for a short flash.
+    private static let liftHoldAfterPress: TimeInterval = 0.1
 
     init(
         items: HiddenMenuItemProvider,
@@ -125,16 +141,62 @@ final class NativeVisibilityEngine: MenuBarEngine {
 
     func expand() {
         state = .expanded
+        isLifted = false
         releaseAssertion()
         setItemsHidden(false)
     }
 
     // Native hiding does not depend on display geometry, so only drop the cached
-    // sections; the next read from an unrestricted bar replaces them.
+    // sections; the next read from an unrestricted bar replaces them. A brief
+    // lift is not an unrestricted bar: it puts the cached sections back.
     func invalidateLayout() {
-        if assertion == nil {
+        if assertion == nil, !isLifted {
             layout = nil
         }
+    }
+
+    // The assessment mode behind this engine keeps macOS's own items visible
+    // but inert, Notification Center's clock included.
+    var blocksSystemItemClicks: Bool {
+        return true
+    }
+
+    // Releases the restriction, presses once the items respond, and re-applies
+    // the cached sections: a fresh read takes about a second - far longer than
+    // the flash this is meant to be - and nothing was rearranged meanwhile.
+    // The separator stays off the bar throughout.
+    func liftHidingBriefly(
+        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+    ) -> Bool {
+        guard state == .collapsed, !isLifted, assertion != nil, let layout = layout else {
+            return false
+        }
+        isLifted = true
+        liftID += 1
+        let liftID = self.liftID
+        releaseAssertion()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.liftSettleDelay) { [weak self] in
+            guard let self = self, self.isLifted, liftID == self.liftID else { return }
+            press()
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.liftHoldAfterPress) {
+                [weak self] in
+                guard let self = self, self.isLifted, liftID == self.liftID else { return }
+                self.activate(allowing: layout.bundles(in: [.visible])) { [weak self] succeeded in
+                    guard let self = self, self.isLifted, liftID == self.liftID else { return }
+                    self.isLifted = false
+                    if succeeded {
+                        self.layout = layout
+                        completion(.collapsed)
+                    } else {
+                        // Fail open, as a collapse does.
+                        self.state = .expanded
+                        self.setItemsHidden(false)
+                        completion(.unavailable)
+                    }
+                }
+            }
+        }
+        return true
     }
 
     // The sections as the user arranged them. Read fresh only from an
@@ -159,10 +221,8 @@ final class NativeVisibilityEngine: MenuBarEngine {
             AppLogger.info(
                 "NativeVisibility: arrow at x=\(boundary.midX); visible "
                     + "\(layout.bundles(in: [.visible])), hidden \(layout.bundles(in: [.hidden]))")
-            // Remember where macOS's own items are, so a click on one (the
-            // clock/calendar in particular, which the restriction would
-            // otherwise leave inert) can be forwarded through a temporary
-            // release.
+            // Kept for re-applying the same hiding without a read, which only
+            // an unrestricted bar answers correctly (see liftHidingBriefly).
             self.layout = layout
             body(layout)
         }
@@ -176,9 +236,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
         // Notification Center owns the calendar/widgets panel the clock opens.
         // Without its bundle in the allow-list, re-applying the restriction
         // dismisses that panel; with it, the panel survives while the apps'
-        // icons go back into hiding. (Measured: re-applying 0.2 s after the
-        // click still keeps the panel open.) Control Center's panel behaves
-        // the same way for its own module.
+        // icons go back into hiding. (Measured: re-applying anywhere from right
+        // after the press to 0.2 s later keeps the panel open.) Control
+        // Center's panels and menus (Wi-Fi...) behave the same way.
         let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
         let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles + systemUIBundles
         visibility.activate(

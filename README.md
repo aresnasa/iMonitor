@@ -34,8 +34,9 @@ the bar. The arrow itself never expands on hover, only on a click.
 
 On macOS 27 the system's own hiding mode keeps macOS's menu-bar items (the
 clock/calendar, Wi-Fi, Control Center) visible but unresponsive while the icons
-are hidden. Expand the bar with the arrow to use them; the calendar and widgets
-panel then open as usual.
+are hidden. iMonitor passes a click on one of them through: the hidden icons pop
+out for a moment, the calendar and widgets panel (or the item's menu) opens, and
+the icons hide again while the panel stays open.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear

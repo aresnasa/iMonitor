@@ -15,9 +15,11 @@
 //  - the context menu carries iMonitor's own actions (Settings, Quit)
 //  - hiding mechanics live in a MenuBarEngine (legacy length inflation on
 //    macOS <= 26, native visibility on macOS 27)
+//  - on macOS 27 a click on macOS's own items (clock/calendar, Wi-Fi, Control
+//    Center), which native hiding leaves inert, is passed through by
+//    SystemItemClickForwarder
 //
 
-import ApplicationServices
 import Cocoa
 
 class HiddenBarController: NSObject, HiddenMenuItemProvider {
@@ -29,6 +31,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     private let notchOverflowController = NotchOverflowController()
     private lazy var menuBarEngine: MenuBarEngine = MenuBarEngineFactory.make(items: self)
+    private lazy var systemItemClickForwarder = SystemItemClickForwarder(
+        isActive: { [weak self] in self?.forwardsSystemItemClicks ?? false },
+        liftHiding: { [weak self] press in self?.liftHidingForSystemItem(press) ?? false })
 
     private var timer: Timer?
     private var isToggle = false
@@ -154,6 +159,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         timer?.invalidate()
         timer = nil
         cancelHoverDwell()
+        systemItemClickForwarder.cancel()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
             hoverMonitor = nil
@@ -218,12 +224,31 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // Clicks in the bar suppress hover reveals until the pointer leaves it.
         // They also schedule a re-assertion, a self-heal in case the
         // menu-tracking broadcasts ever stop arriving: a hiding that a foreign
-        // menu's relayout reset comes back on its own.
+        // menu's relayout reset comes back on its own. Left clicks on macOS's
+        // own items go to SystemItemClickForwarder too, releases included.
         menuBarClickMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
-            guard let self = self, self.isMouseInMenuBar else { return }
-            self.handleMenuBarClick()
+            matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown]
+        ) { [weak self] event in
+            self?.handleGlobalClick(event)
+        }
+    }
+
+    private func handleGlobalClick(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseUp:
+            // Wherever it lands: the forwarder only acts on the release of a
+            // press it saw begin on one of macOS's items.
+            systemItemClickForwarder.mouseUp(event)
+        case .leftMouseDown:
+            // A new press supersedes one whose release this monitor never saw
+            // (released over this app's own windows).
+            systemItemClickForwarder.cancel()
+            guard isMouseInMenuBar else { return }
+            handleMenuBarClick()
+            systemItemClickForwarder.mouseDown(event)
+        default:
+            guard isMouseInMenuBar else { return }
+            handleMenuBarClick()
         }
     }
 
@@ -372,94 +397,27 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         hoverAnchor = nil
     }
 
-    // MARK: - Calendar / widgets shortcut
+    // MARK: - macOS's own items under native hiding
 
-    /// Arrow click while the bar is expanded: open macOS's clock panel (calendar
-    /// and widgets) and then hide the other icons again. The panel's bundle is in
-    /// the native engine's allow-list, so re-applying the restriction leaves the
-    /// panel open while the icons go back into hiding.
-    private func openWidgetsAndCollapse() {
-        guard let clock = clockItemFrame() else {
-            // Nothing to click: fall back to the plain collapse.
-            toggleExpandedCollapsed()
-            return
-        }
-        AppLogger.info(
-            "HiddenBar: arrow click -> calendar/widgets, then hide the icons (clock at \(clock))")
-        // Let the status-item action's tracking loop unwind before posting the
-        // synthetic click; one posted from inside it is ignored.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self = self, !self.wantsCollapsed else { return }
-            self.click(at: CGPoint(x: clock.midX, y: clock.midY))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                guard let self = self, !self.wantsCollapsed else { return }
-                self.collapseIfPossible()
+    /// Whether a click on one of macOS's own items needs passing through: only
+    /// while the user wants the bar collapsed and the engine's hiding leaves
+    /// those items inert (macOS 27's native hiding).
+    private var forwardsSystemItemClicks: Bool {
+        return wantsCollapsed && isCollapsed && menuBarEngine.blocksSystemItemClicks
+    }
+
+    /// Lifts the hiding around one press on a system item: the hidden icons pop
+    /// out for a moment and hide again, while the panel or menu the press
+    /// opened stays up.
+    private func liftHidingForSystemItem(_ press: @escaping () -> Void) -> Bool {
+        return menuBarEngine.liftHidingBriefly(for: press) { [weak self] result in
+            switch result {
+            case .collapsed:
+                self?.didCollapseMenuBar()
+            case .unavailable:
+                self?.didFailToCollapseMenuBar()
             }
         }
-    }
-
-    /// The clock/date item's frame, as Accessibility exposes it. macOS hosts it
-    /// under MenuBarAgent as a wide AXGroup.
-    private func clockItemFrame() -> CGRect? {
-        for app in NSWorkspace.shared.runningApplications
-        where app.bundleIdentifier == "com.apple.MenuBarAgent" {
-            let element = AXUIElementCreateApplication(app.processIdentifier)
-            AXUIElementSetMessagingTimeout(element, 0.2)
-            var barValue: CFTypeRef?
-            guard
-                AXUIElementCopyAttributeValue(
-                    element, "AXExtrasMenuBar" as CFString, &barValue) == .success,
-                let bar = barValue
-            else { continue }
-            let barElement = unsafeBitCast(bar, to: AXUIElement.self)
-            var childrenValue: CFTypeRef?
-            guard
-                AXUIElementCopyAttributeValue(
-                    barElement, kAXChildrenAttribute as CFString, &childrenValue) == .success,
-                let children = childrenValue as? [AXUIElement]
-            else { continue }
-            for child in children {
-                guard let frame = Self.accessibilityFrame(of: child), frame.width > 80
-                else { continue }
-                return frame
-            }
-        }
-        return nil
-    }
-
-    private static func accessibilityFrame(of element: AXUIElement) -> CGRect? {
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        guard
-            AXUIElementCopyAttributeValue(
-                element, kAXPositionAttribute as CFString, &positionValue) == .success,
-            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
-                == .success,
-            let positionRef = positionValue, let sizeRef = sizeValue
-        else { return nil }
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        let positionAX = unsafeBitCast(positionRef, to: AXValue.self)
-        let sizeAX = unsafeBitCast(sizeRef, to: AXValue.self)
-        guard
-            AXValueGetValue(positionAX, .cgPoint, &position),
-            AXValueGetValue(sizeAX, .cgSize, &size)
-        else { return nil }
-        return CGRect(origin: position, size: size)
-    }
-
-    private func click(at point: CGPoint) {
-        AppLogger.info("HiddenBar: synthetic click at \(point)")
-        let source = CGEventSource(stateID: .hidSystemState)
-        CGEvent(
-            mouseEventSource: source, mouseType: .leftMouseDown,
-            mouseCursorPosition: point, mouseButton: .left
-        )?.post(tap: .cghidEventTap)
-        usleep(50_000)
-        CGEvent(
-            mouseEventSource: source, mouseType: .leftMouseUp,
-            mouseCursorPosition: point, mouseButton: .left
-        )?.post(tap: .cghidEventTap)
     }
 
     // MARK: - State
@@ -518,15 +476,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             clickCount: clickCount)
         {
         case .toggle:
-            if wantsCollapsed {
-                // Collapsed: the arrow's job stays "show the hidden icons".
-                toggleExpandedCollapsed()
-            } else {
-                // Expanded: do not collapse to an empty bar - the user asked for
-                // the calendar/widgets panel instead, with the other icons put
-                // back into hiding once it is up.
-                openWidgetsAndCollapse()
-            }
+            toggleExpandedCollapsed()
         case .showItemsList:
             showItemsListAfterDoubleClick()
         case .ignore:
@@ -643,6 +593,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         AppLogger.info("HiddenBar: expanding the menu bar (\(reason))")
         wantsCollapsed = false
         isExpandedByHover = false
+        // The bar is about to be unrestricted: a click on one of macOS's items
+        // in progress goes through by itself now.
+        systemItemClickForwarder.cancel()
         menuBarEngine.expand()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
