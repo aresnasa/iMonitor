@@ -170,6 +170,7 @@ struct MenuBarSettingsView: View {
     @AppStorage("hideHoverToExpandEnabled") private var hoverToExpand = false
     @AppStorage("hideHoverExpandSeconds") private var hoverExpandSeconds = 0.5
     @AppStorage("notchOverflowEnabled") private var notchEnabled = true
+    @StateObject private var itemsModel = MenuBarItemsModel()
 
     // Only meaningful while Accessibility is missing; refreshed whenever the app
     // returns to the foreground (System Settings visits included).
@@ -270,6 +271,8 @@ struct MenuBarSettingsView: View {
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+                MenuBarItemsSettingsView(model: itemsModel)
             }
 
             Toggle(
@@ -290,9 +293,13 @@ struct MenuBarSettingsView: View {
                     Spacer()
                     Button("Reset") {
                         MenuBarArrangementStore.reset()
+                        MenuBarSectionOverrides.clear()
+                        AppConfig.notifyPreferencesChanged()
+                        itemsModel.refresh()
                     }
                     .controlSize(.small)
-                    .help("Forget the remembered order and follow the live menu bar again")
+                    .help(
+                        "Forget the remembered order and the manual Hidden/Visible choices")
                 }
             }
 
@@ -335,5 +342,260 @@ struct MenuBarSettingsView: View {
     private func needsRestart() {
         AppConfig.notifyPreferencesChanged()
         AppDelegate.presentRestartPrompt()
+    }
+}
+
+/// One row of the Settings menu-bar items list. Holds the AX item so a toggle
+/// can name its owning bundle; the display name/icon are resolved once per
+/// refresh and never left nil (the list must not drop an icon).
+struct MenuBarSettingsItem: Identifiable {
+    let id: String
+    let info: MenuBarExtraInfo
+    let name: String
+    let icon: NSImage?
+    let bundleIdentifier: String?
+    var isHidden: Bool
+    let isSystem: Bool
+    let canToggle: Bool
+    let isDrawnOnBar: Bool
+}
+
+final class MenuBarItemsModel: ObservableObject {
+    @Published private(set) var hidden: [MenuBarSettingsItem] = []
+    @Published private(set) var visible: [MenuBarSettingsItem] = []
+    @Published private(set) var system: [MenuBarSettingsItem] = []
+    @Published private(set) var isLoading = false
+    @Published private(set) var isAuthorized = AccessibilityPermission.isGranted
+    @Published private(set) var canConfigure = false
+
+    // A refresh walks every running app; a slow earlier walk must not overwrite
+    // the result of a newer one.
+    private var generation = 0
+
+    func refresh() {
+        guard AccessibilityPermission.isGranted else {
+            isAuthorized = false
+            hidden = []
+            visible = []
+            system = []
+            isLoading = false
+            return
+        }
+        isAuthorized = true
+        isLoading = true
+        generation += 1
+        let generation = self.generation
+
+        let app = AppDelegate.shared
+        let hiddenBoundary = app.menuBarHiddenBoundaryX
+        let hidesPerBundle = app.menuBarHidesItemsPerBundle
+        let notchBoundary = NotchOverflowController.currentNotchBoundaryX
+        let hasNotch = NotchOverflowController.hasNotch
+
+        NotchOverflowController.scanExtras { [weak self] extras in
+            guard let self, generation == self.generation else { return }
+            let snapshot = MenuBarItemsResolver.resolve(
+                extras: extras,
+                hiddenBoundary: hiddenBoundary,
+                notchBoundary: notchBoundary,
+                hasNotch: hasNotch,
+                hidesPerBundle: hidesPerBundle,
+                isLTR: MenuBarOrder.isUsingLTRLanguage,
+                overrides: MenuBarSectionOverrides.current)
+            self.canConfigure = hidesPerBundle
+            self.hidden = Self.rows(snapshot.hidden, hidden: true, canConfigure: hidesPerBundle)
+            self.visible = Self.rows(
+                snapshot.visible.filter { !$0.isSystemItem }, hidden: false,
+                canConfigure: hidesPerBundle)
+            self.system = Self.rows(
+                snapshot.system, hidden: false, canConfigure: false)
+            self.isLoading = false
+        }
+    }
+
+    private static func rows(
+        _ items: [MenuBarExtraInfo], hidden: Bool, canConfigure: Bool
+    ) -> [MenuBarSettingsItem] {
+        var seen = Set<String>()
+        return items.map { info in
+            var id = [
+                info.bundleIdentifier ?? "", info.identifier ?? "", info.title ?? "",
+                String(info.pid), String(Int(info.position.x)), String(Int(info.position.y)),
+            ].joined(separator: "|")
+            while seen.contains(id) { id += "'" }
+            seen.insert(id)
+            return MenuBarSettingsItem(
+                id: id,
+                info: info,
+                name: info.displayName,
+                icon: info.displayIcon,
+                bundleIdentifier: info.bundleIdentifier,
+                isHidden: hidden,
+                isSystem: info.isSystemItem,
+                canToggle: canConfigure && !info.isSystemItem
+                    && info.bundleIdentifier?.isEmpty == false,
+                isDrawnOnBar: info.isDrawnOnBar)
+        }
+    }
+
+    /// A toggle writes a manual pin, not a physical move: macOS 27 hides per
+    /// bundle, so the pin is enforceable while the bar is collapsed. Every row
+    /// of the bundle follows (one app hides as a whole).
+    func toggle(_ row: MenuBarSettingsItem) {
+        guard row.canToggle, let bundle = row.bundleIdentifier else { return }
+        let makeHidden = !row.isHidden
+        MenuBarSectionOverrides.set(bundle, hidden: makeHidden)
+        AppConfig.notifyPreferencesChanged()
+
+        var moved = (hidden + visible).filter { $0.bundleIdentifier == bundle }
+        hidden.removeAll { $0.bundleIdentifier == bundle }
+        visible.removeAll { $0.bundleIdentifier == bundle }
+        for index in moved.indices { moved[index].isHidden = makeHidden }
+        if makeHidden {
+            hidden.append(contentsOf: moved)
+        } else {
+            visible.append(contentsOf: moved)
+        }
+    }
+
+    func resetPins() {
+        MenuBarSectionOverrides.clear()
+        AppConfig.notifyPreferencesChanged()
+        refresh()
+    }
+}
+
+/// The complete menu-bar inventory, grouped the same way as the dropdown.
+/// System items are listed separately because their visibility belongs to
+/// macOS; every other row can be pinned Hidden or Visible here.
+struct MenuBarItemsSettingsView: View {
+    @ObservedObject var model: MenuBarItemsModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text("Menu-bar Items")
+                    .font(.system(size: 11, weight: .semibold))
+                if model.isLoading {
+                    ProgressView()
+                        .controlSize(.mini)
+                }
+                Spacer()
+                Button("Refresh") { model.refresh() }
+                    .controlSize(.small)
+                    .help("Re-read every app's menu-bar icons")
+                Button("Reset") { model.resetPins() }
+                    .controlSize(.small)
+                    .disabled(!model.canConfigure)
+                    .help("Forget manual Hidden/Visible choices")
+            }
+
+            if !model.isAuthorized {
+                MenuBarItemsHint(
+                    "Accessibility permission is required to list menu-bar icons.")
+            } else if !model.isLoading && model.hidden.isEmpty && model.visible.isEmpty
+                && model.system.isEmpty
+            {
+                MenuBarItemsHint("No menu-bar items found.")
+            } else {
+                if !model.canConfigure {
+                    MenuBarItemsHint(
+                        "Manual Hide/Show needs per-app hiding (macOS 27). Position the arrow "
+                            + "or ⌘-drag rows in the dropdown instead.")
+                }
+                group("Hidden", model.hidden, hidden: true)
+                group("Visible", model.visible, hidden: false)
+                group("Always visible", model.system, hidden: false)
+            }
+        }
+        .onAppear { model.refresh() }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: AccessibilityPermission.mayHaveChangedNotification)
+        ) { _ in model.refresh() }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+        ) { _ in model.refresh() }
+    }
+
+    @ViewBuilder
+    private func group(_ title: String, _ rows: [MenuBarSettingsItem], hidden: Bool)
+        -> some View
+    {
+        if !rows.isEmpty {
+            Text("\(title) (\(rows.count))")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
+                .padding(.top, 2)
+            ForEach(rows) { row in
+                HStack(spacing: 6) {
+                    MenuBarItemIcon(image: row.icon, dimmed: hidden)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(row.name)
+                            .font(.system(size: 11))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if !row.isDrawnOnBar {
+                            Text("not currently drawn on the bar")
+                                .font(.system(size: 8))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    if row.isSystem {
+                        Text("System")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    } else if row.canToggle {
+                        Button {
+                            model.toggle(row)
+                        } label: {
+                            Image(systemName: hidden ? "eye.slash" : "eye")
+                                .font(.system(size: 10))
+                        }
+                        .buttonStyle(.plain)
+                        .help(hidden ? "Show in the menu bar" : "Hide when the bar is collapsed")
+                    }
+                }
+                .opacity(hidden ? 0.7 : 1)
+            }
+        }
+    }
+}
+
+private struct MenuBarItemsHint: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 9))
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct MenuBarItemIcon: View {
+    let image: NSImage?
+    let dimmed: Bool
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Image(systemName: "menubar.rectangle")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            }
+        }
+        .frame(width: 16, height: 16)
+        .foregroundColor(.primary)
+        .opacity(dimmed ? 0.6 : 1)
+        .help("Menu-bar icon")
     }
 }

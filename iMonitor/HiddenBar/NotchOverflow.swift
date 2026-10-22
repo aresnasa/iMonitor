@@ -462,6 +462,12 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         currentBoundary().hasNotch
     }
 
+    /// The notch's clear-zone edge, used by the Settings list when the Hidden
+    /// Bar arrow is not on the bar.
+    static var currentNotchBoundaryX: CGFloat {
+        currentBoundary().overflowThresholdX
+    }
+
     /// Show the overflow menu anchored to a status item. Safe to call from that
     /// item's own action: the menu is only *shown* after an async snapshot, by
     /// which time the originating click has finished dispatching (never call
@@ -552,37 +558,28 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         let boundaryX = barBoundary ?? resolvedBoundary
         let hasSections = Self.hasNotch || barBoundary != nil
         let hidesPerBundle = hidesByBundle?() ?? false
-        // System items (clock, Wi-Fi, battery, Control Center...) are always
-        // visible: the native hiding keeps them whatever their position. They
-        // stay out of the hide/show split so the popup cannot offer to hide
-        // something the bar never hides.
-        let systemItems = allExtras.filter { $0.isSystemItem }
-        let otherItems = allExtras.filter { !$0.isSystemItem }
-        let classified: (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) =
-            hasSections
-            ? MenuBarExtraClassifier.classify(
-                otherItems, boundary: boundaryX, isLTR: MenuBarOrder.isUsingLTRLanguage,
-                hidesPerBundle: hidesPerBundle)
-            : (hidden: [], visible: otherItems)
-        let visibleWithSystem = (classified.visible + systemItems)
-            .sorted { $0.position.x > $1.position.x }
-        // The arrangement the user set in this popup only orders the rows: the
-        // Hidden/Visible section always follows the live bar, so the popup
-        // cannot claim an icon is hidden while the bar is showing it.
-        let (hiddenExtras, visibleExtras) = MenuBarArrangementStore.arranged(
-            hidden: classified.hidden, visible: visibleWithSystem)
+        let snapshot = MenuBarItemsResolver.resolve(
+            extras: allExtras,
+            hiddenBoundary: barBoundary,
+            notchBoundary: resolvedBoundary,
+            hasNotch: Self.hasNotch,
+            hidesPerBundle: hidesPerBundle,
+            isLTR: MenuBarOrder.isUsingLTRLanguage,
+            overrides: MenuBarSectionOverrides.current)
+        let hiddenExtras = snapshot.hidden
+        let visibleExtras = snapshot.visible
         AppLogger.info(
             "NotchOverflow: boundary \(Int(boundaryX)); perBundle \(hidesPerBundle); hidden "
                 + "\(hiddenExtras.map(\.displayName)); visible "
                 + "\(visibleExtras.map(\.displayName))")
-        let unmeasured = (hiddenExtras + visibleExtras).filter { !$0.isDrawnOnBar }
+        let unmeasured = snapshot.flat.filter { !$0.isDrawnOnBar }
         if !unmeasured.isEmpty {
             AppLogger.info(
                 "NotchOverflow: not drawn on the bar: \(unmeasured.map(\.displayName))")
         }
         // Flat list for notch-less screens; rows keep their arrangement section
         // flag, so an order set on a notched display survives here.
-        let flatExtras = hiddenExtras + visibleExtras
+        let flatExtras = snapshot.flat
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -940,6 +937,12 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             placements.append((key, hidden ? .hidden : .visible))
         }
         MenuBarArrangementStore.record(placements)
+        // The drop is an explicit Hidden/Visible choice: pin the dragged app so
+        // it holds even if macOS ignored the synthetic drag. The Settings list
+        // can flip the pin back without touching the icon's position.
+        if let key = MenuBarArrangementStore.key(of: source.info) {
+            MenuBarSectionOverrides.set(key, hidden: adopted)
+        }
     }
 
     // MARK: - NSMenuDelegate
@@ -960,7 +963,10 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
 
     // Runs off the main thread: Accessibility round-trips to every app take about
     // a second in total and the default per-app timeout is several seconds.
-    private func getAllMenuBarExtras(completion: @escaping ([MenuBarExtraInfo]) -> Void) {
+    /// Every other app's menu-bar items, for the dropdown and the Settings
+    /// list. Runs the Accessibility walk off the main thread; completion on
+    /// the main queue.
+    static func scanExtras(completion: @escaping ([MenuBarExtraInfo]) -> Void) {
         let myPID = ProcessInfo.processInfo.processIdentifier
         // Only app bundles own status items. Skipping the rest (dozens of WebKit
         // and XPC helpers, each of which would sit out the timeout) cuts the walk
@@ -968,9 +974,13 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.processIdentifier != myPID && $0.bundleURL?.pathExtension == "app" }
         DispatchQueue.global(qos: .userInitiated).async {
-            let results = Self.extras(of: apps)
+            let results = extras(of: apps)
             DispatchQueue.main.async { completion(results) }
         }
+    }
+
+    private func getAllMenuBarExtras(completion: @escaping ([MenuBarExtraInfo]) -> Void) {
+        Self.scanExtras(completion: completion)
     }
 
     private static func extras(of apps: [NSRunningApplication]) -> [MenuBarExtraInfo] {
