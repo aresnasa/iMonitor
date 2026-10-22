@@ -26,7 +26,10 @@ final class OverflowRowView: NSView {
     var onActivate: ((MenuBarExtraInfo) -> Void)?
 
     static let rowHeight: CGFloat = 24
-    static let iconSize: CGFloat = 16
+    /// Native menu-bar icon size. App icons are scaled down to this slot;
+    /// symbols keep their natural proportions (a 2:1 battery must not be
+    /// stretched into a square).
+    static let iconSize: CGFloat = 18
     /// Width of the shown/not-shown eye slot every row reserves (see `drawRow`).
     static let eyeSize: CGFloat = 13
     static let horizontalPadding: CGFloat = 8
@@ -78,14 +81,14 @@ final class OverflowRowView: NSView {
     }
 
     private var title: String {
-        (info.title?.isEmpty == false) ? info.title! : info.appName
+        info.displayName
     }
 
     // MARK: - Drawing
 
     override func draw(_ dirtyRect: NSRect) {
         Self.drawRow(
-            icon: info.appIcon, title: title, hidden: isHiddenRow,
+            icon: info.displayIcon, title: title, hidden: isHiddenRow,
             highlighted: enclosingMenuItem?.isHighlighted == true,
             in: bounds)
     }
@@ -106,12 +109,18 @@ final class OverflowRowView: NSView {
             y: rect.midY - iconSize / 2,
             width: iconSize, height: iconSize)
         if let icon = icon {
-            // Drawn straight from the original multi-representation image, so
-            // AppKit picks the Retina-crisp one; see the header.
-            icon.draw(
-                in: iconRect, from: .zero, operation: .sourceOver,
-                fraction: hidden ? 0.6 : 1.0, respectFlipped: true,
-                hints: [.interpolation: NSImageInterpolation.high.rawValue])
+            // Template glyphs take the row's text color so a system symbol stays
+            // visible in Dark Mode; app icons keep their own colors.
+            let iconColor =
+                highlighted
+                ? NSColor.selectedMenuItemTextColor : NSColor.labelColor
+            // Aspect-fit, never upscale: app icons come back from
+            // NSRunningApplication at 32 pt and shrink to the slot; a system
+            // symbol keeps its own (often non-square) proportions instead of
+            // being stretched to fill it.
+            Self.draw(
+                icon, in: Self.aspectFit(icon, in: iconRect), color: iconColor,
+                fraction: hidden ? 0.6 : 1.0)
         }
 
         // Shown/not-shown marker: an eye in a fixed-width slot after the app
@@ -126,11 +135,7 @@ final class OverflowRowView: NSView {
             let eyeColor: NSColor =
                 highlighted
                 ? .selectedMenuItemTextColor : (hidden ? .secondaryLabelColor : .labelColor)
-            eyeColor.set()
-            eye.draw(
-                in: eyeRect, from: .zero, operation: .sourceOver, fraction: 1.0,
-                respectFlipped: true,
-                hints: [.interpolation: NSImageInterpolation.high.rawValue])
+            Self.draw(eye, in: eyeRect, color: eyeColor)
         }
 
         let attributes: [NSAttributedString.Key: Any] = [
@@ -146,6 +151,43 @@ final class OverflowRowView: NSView {
         let size = (text as NSString).size(withAttributes: attributes)
         (text as NSString).draw(
             at: NSPoint(x: textX, y: rect.midY - size.height / 2), withAttributes: attributes)
+    }
+
+    /// Draws an image at its original colors, or tints a template image with
+    /// `color` (an SF Symbol drawn manually does not pick up the current
+    /// NSColor by itself, and would stay black in Dark Mode).
+    private static func draw(
+        _ image: NSImage, in rect: NSRect, color: NSColor, fraction: CGFloat = 1.0
+    ) {
+        let source = image.isTemplate ? tinted(image, with: color) : image
+        source.draw(
+            in: rect, from: .zero, operation: .sourceOver, fraction: fraction,
+            respectFlipped: true,
+            hints: [.interpolation: NSImageInterpolation.high.rawValue])
+    }
+
+    /// A copy of `image` whose opaque pixels are `color`. The handler runs at
+    /// draw time, so the tint follows the row's current appearance.
+    private static func tinted(_ image: NSImage, with color: NSColor) -> NSImage {
+        let tinted = NSImage(size: image.size, flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(rect: rect).fill()
+            image.draw(in: rect, from: .zero, operation: .destinationIn, fraction: 1.0)
+            return true
+        }
+        tinted.isTemplate = false
+        return tinted
+    }
+
+    private static func aspectFit(_ image: NSImage, in rect: NSRect) -> NSRect {
+        let imageSize = image.size
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let scale = min(rect.width / imageSize.width, rect.height / imageSize.height, 1)
+        let width = imageSize.width * scale
+        let height = imageSize.height * scale
+        return NSRect(
+            x: rect.midX - width / 2, y: rect.midY - height / 2,
+            width: width, height: height)
     }
 
     private static func fitted(

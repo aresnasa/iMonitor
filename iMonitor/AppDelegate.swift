@@ -207,6 +207,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if AppConfig.notchOverflowEnabled {
             guard menuBarOverflowController == nil else { return }
             let controller = NotchOverflowController()
+            // The popup's Hidden/Visible split follows the Hidden Bar's arrow,
+            // the same boundary its engine uses. nil when that feature is off:
+            // the notch boundary stands in.
+            controller.hiddenBoundary = { [weak self] in
+                self?.hiddenBarController?.hiddenBoundaryX
+            }
+            // Native hiding is per app, so the popup must group the rows the
+            // same way; otherwise one icon of a multi-icon app could read
+            // "hidden" while the collapsed bar keeps it visible.
+            controller.hidesByBundle = { [weak self] in
+                self?.hiddenBarController?.hidesMenuBarItemsPerBundle ?? false
+            }
             // Rearrangement drags borrow the Hidden Bar engine: icons are
             // only ⌘-draggable while the bar is expanded.
             controller.prepareForRearrangement = { [weak self] completion in

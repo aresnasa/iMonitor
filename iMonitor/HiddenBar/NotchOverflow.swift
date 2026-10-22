@@ -17,9 +17,170 @@ struct MenuBarExtraInfo {
     let appIcon: NSImage?
     let title: String?
     let bundleIdentifier: String?
+    /// The item's own Accessibility identifier (`com.apple.menuextra.clock`...).
+    /// MenuBarAgent hosts several distinctly named items under one bundle, so
+    /// without it they would all read as one "MenuBarAgent" row.
+    let identifier: String?
+    /// The item's localized Accessibility description ("时钟", "电池"...),
+    /// which is the only human-readable name most system items expose.
+    let axDescription: String?
     let pid: pid_t
     let position: CGPoint
     let size: CGSize
+
+    /// macOS's own items (clock, Wi-Fi, battery, Control Center...) plus the
+    /// input source menu. Their visibility is governed by macOS, not by the
+    /// Hidden Bar's bundle sections, so the popup never offers to hide them.
+    var isSystemItem: Bool {
+        if identifier?.hasPrefix("com.apple.menuextra.") == true { return true }
+        guard let bundleIdentifier else { return false }
+        return MenuBarLayoutResolver.systemItemOwners.contains(bundleIdentifier)
+    }
+
+    /// Whether macOS currently draws the item on the bar. A zero frame means it
+    /// has been removed by hiding (or the read failed); the row still belongs
+    /// in the list, but has no position to classify.
+    var isDrawnOnBar: Bool {
+        return size.width > 0 && size.height > 0
+    }
+
+    /// What a row shows. System items have no AXTitle; their description is the
+    /// localized name, with a status suffix for Wi-Fi ("Wi‑Fi，已接入，3格") that
+    /// is not part of the name.
+    var displayName: String {
+        if isSystemItem {
+            if let description = axDescription, !description.isEmpty,
+                let name = Self.firstNamePart(description)
+            {
+                return name
+            }
+            if bundleIdentifier == "com.apple.TextInputMenuAgent" {
+                return "Input Source"
+            }
+            if let identifier = identifier {
+                return Self.systemName(for: identifier)
+            }
+        }
+        if let title = title, !title.isEmpty { return title }
+        return appName
+    }
+
+    /// The app icon is meaningless for a MenuBarAgent item (it would show the
+    /// agent's generic icon); a symbol says what the item is. The same applies
+    /// to owners whose app icon is a placeholder (SystemUIServer) and to the
+    /// input source menu. The image keeps its natural proportions: the row
+    /// draws it aspect-fit instead of stretching it into a square.
+    var displayIcon: NSImage? {
+        if let identifier = identifier {
+            // The battery's own description carries its state
+            // ("电池，80%"); reflect it instead of always drawing a full
+            // battery next to an 80% bar item.
+            if identifier == "com.apple.menuextra.battery" {
+                return Self.symbol(Self.batterySymbol(for: axDescription))
+            }
+            if let symbolName = Self.systemSymbol(for: identifier) {
+                return Self.symbol(symbolName)
+            }
+        }
+        if let bundleIdentifier {
+            if InputSourceVisibility.bundles.contains(bundleIdentifier) {
+                return Self.symbol("globe")
+            }
+            if let symbolName = Self.ownerSymbols[bundleIdentifier] {
+                return Self.symbol(symbolName)
+            }
+        }
+        return appIcon
+    }
+
+    private static func symbol(_ name: String) -> NSImage? {
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+        image?.isTemplate = true
+        return image
+    }
+
+    /// Symbols for items whose owning app has no usable icon of its own.
+    private static let ownerSymbols: [String: String] = [
+        "com.apple.systemuiserver": "menubar.rectangle",
+        "com.apple.MenuBarAgent": "menubar.rectangle",
+    ]
+
+    private static func firstNamePart(_ description: String) -> String? {
+        let name = description.split(whereSeparator: {
+            $0 == "," || $0 == "，" || $0 == ":" || $0 == "："
+        }).first.map(String.init)?.trimmingCharacters(in: .whitespaces)
+        return (name?.isEmpty == false) ? name : nil
+    }
+
+    private static let systemNames: [String: String] = [
+        "com.apple.menuextra.clock": "Clock",
+        "com.apple.menuextra.wifi": "Wi‑Fi",
+        "com.apple.menuextra.battery": "Battery",
+        "com.apple.menuextra.controlcenter": "Control Center",
+        "com.apple.menuextra.bluetooth": "Bluetooth",
+        "com.apple.menuextra.sound": "Sound",
+        "com.apple.menuextra.display": "Display",
+        "com.apple.menuextra.focusmode": "Focus",
+        "com.apple.menuextra.now-playing": "Now Playing",
+        "com.apple.menuextra.airdrop": "AirDrop",
+        "com.apple.menuextra.screen-mirroring": "Screen Mirroring",
+        "com.apple.menuextra.keyboard-brightness": "Keyboard Brightness",
+        "com.apple.menuextra.user": "Fast User Switching",
+        "com.apple.menuextra.vpn": "VPN",
+        "com.apple.menuextra.timer": "Timer",
+        "com.apple.menuextra.audiovideo": "Audio/Video",
+        "com.apple.menuextra.hearing": "Hearing",
+        "com.apple.menuextra.musicrecognition": "Music Recognition",
+        "com.apple.menuextra.voice-control": "Voice Control",
+        "com.apple.menuextra.accessibility-shortcuts": "Accessibility Shortcuts",
+        "com.apple.menuextra.faceTime": "FaceTime",
+        "com.apple.menuextra.energy-mode": "Energy Mode",
+        "com.apple.menuextra.textinput": "Input Source",
+    ]
+
+    private static func systemName(for identifier: String) -> String {
+        if let name = systemNames[identifier] { return name }
+        let suffix = identifier.replacingOccurrences(of: "com.apple.menuextra.", with: "")
+        return suffix.split(separator: "-").map { $0.capitalized }.joined(separator: " ")
+    }
+
+    /// A battery symbol matching the charge (and charging state) in the
+    /// item's Accessibility description. Falls back to a full battery when the
+    /// description carries no percentage.
+    private static func batterySymbol(for description: String?) -> String {
+        guard let description,
+            let range = description.range(of: #"\d{1,3}"#, options: .regularExpression),
+            let percent = Int(description[range])
+        else { return "battery.100" }
+        if description.contains("充电")
+            || description.localizedCaseInsensitiveContains("charging")
+        {
+            return "battery.100.bolt"
+        }
+        switch percent {
+        case ..<13: return "battery.0"
+        case ..<38: return "battery.25"
+        case ..<63: return "battery.50"
+        case ..<88: return "battery.75"
+        default: return "battery.100"
+        }
+    }
+
+    private static func systemSymbol(for identifier: String) -> String? {
+        switch identifier {
+        case "com.apple.menuextra.clock": return "clock"
+        case "com.apple.menuextra.wifi": return "wifi"
+        case "com.apple.menuextra.battery": return "battery.100"
+        case "com.apple.menuextra.controlcenter": return "switch.2"
+        case "com.apple.menuextra.bluetooth": return "dot.radiowaves.left.and.right"
+        case "com.apple.menuextra.sound": return "speaker.wave.2"
+        case "com.apple.menuextra.display": return "display"
+        case "com.apple.menuextra.focusmode": return "moon"
+        case "com.apple.menuextra.now-playing": return "play.circle"
+        case "com.apple.menuextra.textinput": return "globe"
+        default: return nil
+        }
+    }
 }
 
 // MARK: - Notch Geometry
@@ -70,6 +231,10 @@ enum NotchGeometry {
 /// Pure classification of already-fetched extras against a boundary. Split
 /// from AX enumeration so the sorting/filtering rules are testable without
 /// a live Accessibility permission or other running apps.
+///
+/// The boundary is the Hidden Bar arrow's X while that feature hides icons,
+/// and the notch's clear zone otherwise: both put the out-of-sight icons on
+/// the same side of it.
 enum MenuBarExtraClassifier {
     /// Two items whose frames overlap by more than this are treated as crammed
     /// into the same slot. Items that merely touch measure as 1–3pt of overlap
@@ -78,9 +243,17 @@ enum MenuBarExtraClassifier {
 
     static func classify(
         _ extras: [MenuBarExtraInfo],
-        boundary: CGFloat
+        boundary: CGFloat,
+        isLTR: Bool = true,
+        hidesPerBundle: Bool = false
     ) -> (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) {
-        let renderable = extras.filter { $0.size.width > 0 && $0.size.height > 0 }
+        // A zero-frame item is one macOS is not drawing (native hiding removed
+        // it from the bar, or the read failed). It has no position to judge,
+        // but dropping it would hide it from the list as well - exactly the
+        // icons the user needs to find and bring back. It goes to the hidden
+        // bucket, which is what "not drawn on the bar" means.
+        let renderable = extras.filter { $0.isDrawnOnBar }
+        let unmeasured = extras.filter { !$0.isDrawnOnBar }
         let sorted = renderable.sorted { $0.position.x < $1.position.x }
 
         // Items count as "hidden behind the notch" when the system renders them
@@ -92,8 +265,14 @@ enum MenuBarExtraClassifier {
         //     icons. A calm bar never overlaps its items, so an overlapping
         //     run is exactly the set the user lost.
         var isHidden = [Bool](repeating: false, count: sorted.count)
-        for i in sorted.indices where sorted[i].position.x < boundary {
-            isHidden[i] = true
+        for i in sorted.indices {
+            // The boundary is the arrow's midX: icons on its hidden side hide.
+            // In an RTL bar the hidden side is the right one.
+            let onHiddenSide =
+                isLTR
+                ? sorted[i].position.x < boundary
+                : sorted[i].position.x > boundary
+            if onHiddenSide { isHidden[i] = true }
         }
         var i = 0
         while i < sorted.count {
@@ -111,10 +290,35 @@ enum MenuBarExtraClassifier {
             }
         }
 
+        // Native hiding is per owning app: macOS keeps every icon of a bundle
+        // when any of its icons is on the visible side (the same "most visible
+        // wins" rule as MenuBarLayoutResolver). Mirror that here, or the popup
+        // would mark an icon hidden while the collapsed bar still shows it.
+        var visibleBundleKeys = Set<String>()
+        if hidesPerBundle {
+            for (index, item) in sorted.enumerated() where !isHidden[index] {
+                if let key = MenuBarArrangementStore.key(of: item) { visibleBundleKeys.insert(key) }
+            }
+            for index in sorted.indices where isHidden[index] {
+                if let key = MenuBarArrangementStore.key(of: sorted[index]),
+                    visibleBundleKeys.contains(key)
+                {
+                    isHidden[index] = false
+                }
+            }
+        }
+
         var hidden: [MenuBarExtraInfo] = []
         var visible: [MenuBarExtraInfo] = []
         for (index, item) in sorted.enumerated() {
             if isHidden[index] { hidden.append(item) } else { visible.append(item) }
+        }
+        for item in unmeasured {
+            let siblingIsVisible =
+                hidesPerBundle
+                && MenuBarArrangementStore.key(of: item).map { visibleBundleKeys.contains($0) }
+                    == true
+            if siblingIsVisible { visible.append(item) } else { hidden.append(item) }
         }
         return (
             hidden.sorted { $0.position.x > $1.position.x },
@@ -137,13 +341,23 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     var prepareForRearrangement: (@escaping (Bool) -> Void) -> Void = { $0(false) }
     var collapseAfterRearrangement: (Bool) -> Void = { _ in }
 
+    /// Called from the Hidden Bar controller and from the menu-bar dropdown
+    /// owner: returns the Hidden Bar arrow's X, the boundary between the icons
+    /// a collapsed bar hides and the ones it keeps. nil when the feature is off
+    /// or the arrow is not on the bar, in which case the notch boundary stands
+    /// in.
+    var hiddenBoundary: (() -> CGFloat?)?
+    /// Whether the hiding engine hides a whole app rather than each icon's
+    /// slot. Native visibility is per bundle; the popup groups the same way so
+    /// its Hidden/Visible split matches what the collapsed bar actually does.
+    var hidesByBundle: (() -> Bool)?
     /// Called with the hosting item just before its menu starts tracking and
     /// again right after the menu closes, so the item can reflect that state in
     /// its glyph. Unused by the hidden-bar arrow, which opens this menu as a
     /// fallback but keeps its own left/right chevrons.
     var onMenuWillPresent: ((NSStatusItem) -> Void)?
-    var onMenuDidDismiss: ((NSStatusItem) -> Void)?
 
+    var onMenuDidDismiss: ((NSStatusItem) -> Void)?
     private var dragSession: OverflowDragSession?
     /// The reorderable rows of the menu last built, in display order.
     private var menuRows: [OverflowDragSession.Row] = []
@@ -270,16 +484,43 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     ) -> NSMenu {
         let allExtras = extras ?? []
         let resolvedBoundary = boundary ?? Self.currentBoundary().overflowThresholdX
-        // The notch split only means something on notched hardware; anywhere
-        // else every icon goes into one flat list.
+        // The Hidden Bar arrow is the boundary that matters while the feature
+        // hides icons: everything on its hidden side is what the collapsed bar
+        // hides, notch overflow included. Without it (feature off, arrow off
+        // the bar), the notch boundary stands in. With neither, one flat list
+        // is right.
+        let barBoundary = hiddenBoundary?()
+        let boundaryX = barBoundary ?? resolvedBoundary
+        let hasSections = Self.hasNotch || barBoundary != nil
+        let hidesPerBundle = hidesByBundle?() ?? false
+        // System items (clock, Wi-Fi, battery, Control Center...) are always
+        // visible: the native hiding keeps them whatever their position. They
+        // stay out of the hide/show split so the popup cannot offer to hide
+        // something the bar never hides.
+        let systemItems = allExtras.filter { $0.isSystemItem }
+        let otherItems = allExtras.filter { !$0.isSystemItem }
         let classified: (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) =
-            Self.hasNotch
-            ? MenuBarExtraClassifier.classify(allExtras, boundary: resolvedBoundary)
-            : (hidden: [], visible: allExtras)
-        // The arrangement the user set in this popup wins for the rows they
-        // have arranged; rows they never arranged keep following the live bar.
+            hasSections
+            ? MenuBarExtraClassifier.classify(
+                otherItems, boundary: boundaryX, isLTR: MenuBarOrder.isUsingLTRLanguage,
+                hidesPerBundle: hidesPerBundle)
+            : (hidden: [], visible: otherItems)
+        let visibleWithSystem = (classified.visible + systemItems)
+            .sorted { $0.position.x > $1.position.x }
+        // The arrangement the user set in this popup only orders the rows: the
+        // Hidden/Visible section always follows the live bar, so the popup
+        // cannot claim an icon is hidden while the bar is showing it.
         let (hiddenExtras, visibleExtras) = MenuBarArrangementStore.arranged(
-            hidden: classified.hidden, visible: classified.visible)
+            hidden: classified.hidden, visible: visibleWithSystem)
+        AppLogger.info(
+            "NotchOverflow: boundary \(Int(boundaryX)); perBundle \(hidesPerBundle); hidden "
+                + "\(hiddenExtras.map(\.displayName)); visible "
+                + "\(visibleExtras.map(\.displayName))")
+        let unmeasured = (hiddenExtras + visibleExtras).filter { !$0.isDrawnOnBar }
+        if !unmeasured.isEmpty {
+            AppLogger.info(
+                "NotchOverflow: not drawn on the bar: \(unmeasured.map(\.displayName))")
+        }
         // Flat list for notch-less screens; rows keep their arrangement section
         // flag, so an order set on a notched display survives here.
         let flatExtras = hiddenExtras + visibleExtras
@@ -319,7 +560,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
 
         // The reorderable rows, in display order; shared with the drag session
         // so a ⌘-drag can map a drop position back onto these items.
-        if Self.hasNotch {
+        if hasSections {
             menuRows =
                 hiddenExtras.map { row(for: $0, hidden: true) }
                 + visibleExtras.map { row(for: $0, hidden: false) }
@@ -335,8 +576,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             menu.addItem(makeHintItem())
         }
 
-        if Self.hasNotch {
-            // Hidden section
+        if hasSections {
             if !hiddenExtras.isEmpty {
                 // The hidden bucket holds both kinds: icons iMonitor tucked
                 // away when the bar collapsed, and icons macOS squeezed off
@@ -412,14 +652,23 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         for info: MenuBarExtraInfo, hidden: Bool = false, rowIndex: Int = 0, width: CGFloat = 240
     ) -> NSMenuItem {
         let item = NSMenuItem()
-        let title = (info.title?.isEmpty == false) ? info.title! : info.appName
+        let title = info.displayName
         // Kept for Accessibility even though the row view paints the visible
         // content: Assistive clients read the item's title. The drawn eye
         // marker is invisible to them, so hidden rows say so in words.
         item.title = OverflowRowView.accessibilityTitle(title: title, hidden: hidden)
 
         let row = OverflowRowView(rowIndex: rowIndex, info: info, hidden: hidden, width: width)
-        row.onCommandDrag = { [weak self] row in self?.beginRearrangeDrag(row) }
+        // System items are always visible; dragging them between the sections
+        // would promise a hide the bar never does.
+        if !info.isSystemItem {
+            row.onCommandDrag = { [weak self] row in self?.beginRearrangeDrag(row) }
+        } else {
+            row.toolTip = "System items stay visible while the icons are hidden"
+        }
+        if !info.isDrawnOnBar {
+            row.toolTip = "macOS is not drawing this icon on the bar right now"
+        }
         row.onActivate = { [weak self] info in self?.activateRow(info) }
         item.view = row
 
@@ -430,14 +679,14 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     }
 
     private func row(for info: MenuBarExtraInfo, hidden: Bool) -> OverflowDragSession.Row {
-        let title = (info.title?.isEmpty == false) ? info.title! : info.appName
-        return OverflowDragSession.Row(info: info, title: title, isHiddenRow: hidden)
+        return OverflowDragSession.Row(
+            info: info, title: info.displayName, isHiddenRow: hidden)
     }
 
     /// One width for every row view, from the widest title, so the menu sizes
     /// itself like a normal menu instead of one lumpy column.
     private static let rearrangementHint =
-        "Hold \u{2318} and drag an icon to rearrange the menu bar"
+        "⌘-drag between Hidden/Visible to choose what hides; system items stay visible"
 
     private static func rowWidth(for rows: [OverflowDragSession.Row]) -> CGFloat {
         let widestRow =
@@ -489,7 +738,8 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         let result = AXUIElementPerformAction(info.element, kAXPressAction as CFString)
         if result != .success {
             AppLogger.warn(
-                "NotchOverflow: could not press \(info.appName) item (AX error \(result.rawValue))")
+                "NotchOverflow: could not press \(info.displayName) item (AX error \(result.rawValue))"
+            )
         }
     }
 
@@ -501,6 +751,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     /// replica (OverflowDragSession) tracking the mouse. The drop is then
     /// applied to the real bar by MenuBarItemMover.
     private func beginRearrangeDrag(_ row: OverflowRowView) {
+        // System items stay visible; their rows have no drag handler, but a
+        // stale row from an earlier build must not start one either.
+        guard !row.info.isSystemItem else { return }
         guard menuRows.count > 1,
             let menu = row.enclosingMenuItem?.menu,
             let menuWindow = row.window
@@ -576,7 +829,8 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         rememberArrangement(rows: rows, droppedAt: draggedIndex, insertion: insertIndex)
 
         AppLogger.info(
-            "NotchOverflow: rearranging \(source.info.appName) \u{2192} \(target.info.appName)")
+            "NotchOverflow: rearranging \(source.info.displayName) \u{2192} \(target.info.displayName)"
+        )
 
         prepareForRearrangement { [weak self] expanded in
             MenuBarItemMover.move(
@@ -608,11 +862,11 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                 afterDropAt: newIndex, in: reordered.map { $0.isHiddenRow })
             ?? source.isHiddenRow
 
-        var placements: [(bundle: String, section: MenuBarSection)] = []
+        var placements: [(key: String, section: MenuBarSection)] = []
         for (index, row) in reordered.enumerated() {
-            guard let bundle = MenuBarArrangementStore.key(of: row.info) else { continue }
+            guard let key = MenuBarArrangementStore.key(of: row.info) else { continue }
             let hidden = index == newIndex ? adopted : row.isHiddenRow
-            placements.append((bundle, hidden ? .hidden : .visible))
+            placements.append((key, hidden ? .hidden : .visible))
         }
         MenuBarArrangementStore.record(placements)
     }
@@ -670,32 +924,71 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             else { continue }
 
             for child in children {
-                var titleRef: AnyObject?
-                AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &titleRef)
-
-                var posRef: AnyObject?
-                AXUIElementCopyAttributeValue(child, kAXPositionAttribute as CFString, &posRef)
-                var pos = CGPoint.zero
-                if let pv = posRef { AXValueGetValue(pv as! AXValue, .cgPoint, &pos) }
-
-                var sizeRef: AnyObject?
-                AXUIElementCopyAttributeValue(child, kAXSizeAttribute as CFString, &sizeRef)
-                var size = CGSize.zero
-                if let sv = sizeRef { AXValueGetValue(sv as! AXValue, .cgSize, &size) }
-
-                results.append(
-                    MenuBarExtraInfo(
-                        element: child,
-                        appName: app.localizedName ?? "Unknown",
-                        appIcon: app.icon,
-                        title: titleRef as? String,
-                        bundleIdentifier: app.bundleIdentifier,
-                        pid: app.processIdentifier,
-                        position: pos,
-                        size: size
-                    ))
+                AXUIElementSetMessagingTimeout(child, 0.1)
+                let slotFrame = frame(of: child)
+                for element in items(in: child) {
+                    AXUIElementSetMessagingTimeout(element, 0.1)
+                    let itemFrame = frame(of: element) ?? slotFrame
+                    results.append(
+                        MenuBarExtraInfo(
+                            element: element,
+                            appName: app.localizedName ?? "Unknown",
+                            appIcon: app.icon,
+                            title: string(element, kAXTitleAttribute),
+                            bundleIdentifier: app.bundleIdentifier,
+                            identifier: string(element, kAXIdentifierAttribute),
+                            axDescription: string(element, kAXDescriptionAttribute),
+                            pid: app.processIdentifier,
+                            position: itemFrame?.origin ?? .zero,
+                            size: itemFrame?.size ?? .zero
+                        ))
+                }
             }
         }
         return results
+    }
+
+    /// MenuBarAgent wraps each system item in a full-height slot group; other
+    /// owners expose the item directly. Flatten both so a row names the item,
+    /// not the hosting group (four slots would all read "MenuBarAgent").
+    private static func items(in child: AXUIElement) -> [AXUIElement] {
+        guard string(child, kAXRoleAttribute) == "AXGroup" else { return [child] }
+        var childrenRef: AnyObject?
+        guard
+            AXUIElementCopyAttributeValue(child, kAXChildrenAttribute as CFString, &childrenRef)
+                == .success,
+            let children = childrenRef as? [AXUIElement], !children.isEmpty
+        else { return [child] }
+        let items = children.filter {
+            string($0, kAXSubroleAttribute) == "AXMenuExtra"
+                || string($0, kAXRoleAttribute) == "AXMenuBarItem"
+        }
+        return items.isEmpty ? [child] : items
+    }
+
+    private static func string(_ element: AXUIElement, _ attribute: String) -> String? {
+        var value: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success
+        else { return nil }
+        return value as? String
+    }
+
+    private static func frame(of element: AXUIElement) -> CGRect? {
+        var positionRef: AnyObject?
+        var sizeRef: AnyObject?
+        guard
+            AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionRef)
+                == .success,
+            AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef)
+                == .success,
+            let positionValue = positionRef, let sizeValue = sizeRef
+        else { return nil }
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard
+            AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+            AXValueGetValue(sizeValue as! AXValue, .cgSize, &size)
+        else { return nil }
+        return CGRect(origin: position, size: size)
     }
 }

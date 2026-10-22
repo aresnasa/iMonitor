@@ -94,6 +94,12 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         setupUI()
         restoreRemovedStatusItems()
         setupPointerMonitors()
+        // The popup's Hidden/Visible split follows the same arrow the hiding
+        // engine uses, so it reports what the collapsed bar is really doing.
+        notchOverflowController.hiddenBoundary = { [weak self] in self?.hiddenBoundaryX }
+        notchOverflowController.hidesByBundle = { [weak self] in
+            self?.hidesMenuBarItemsPerBundle ?? false
+        }
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleScreenParametersChanged),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
@@ -427,6 +433,26 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     /// whether the "Expand Menu Bar" entry is needed.
     var isCollapsed: Bool {
         return menuBarEngine.state == .collapsed
+    }
+
+    /// The arrow's X, the boundary between the icons a collapsed bar hides and
+    /// the ones it keeps. nil when the feature is off or the arrow is not on
+    /// the bar (removed via Control Center), so the popup falls back to the
+    /// notch boundary.
+    var hiddenBoundaryX: CGFloat? {
+        guard AppConfig.hideMenuBarEnabled, toggleItem.isVisible,
+            let frame = toggleItem.button?.window?.frame
+        else { return nil }
+        return frame.midX
+    }
+
+    /// Whether the engine hides whole apps rather than individual icons. The
+    /// popup must section its rows the same way: under native hiding an app
+    /// with one icon on each side stays fully visible (the most visible item
+    /// wins), so showing one of its rows as hidden would lie about the bar.
+    var hidesMenuBarItemsPerBundle: Bool {
+        guard AppConfig.hideMenuBarEnabled, toggleItem.isVisible else { return false }
+        return menuBarEngine.hidesPerBundle
     }
 
     // True while the pointer sits in any screen's menubar band (the strip between

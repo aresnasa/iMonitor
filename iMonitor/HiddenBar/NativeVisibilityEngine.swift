@@ -36,6 +36,21 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // and are kept by this list (measured: the battery stays visible with it).
     static let systemItemsToKeep = Array(0..<64)
 
+    // Apps that must stay visible whatever the arrangement says. The input
+    // source menu (the language switch) is a system extra owned by
+    // TextInputMenuAgent - or, for some third-party IMEs, by the IME itself.
+    // It is not one of MenuBarAgent's indexed items, so the system-item list
+    // above cannot keep it. Hiding it removes the only way to switch input
+    // methods from the bar.
+    static var alwaysVisibleBundles: [String] {
+        return InputSourceVisibility.bundles.sorted()
+    }
+
+    // Native hiding works per bundle; the popup mirrors that split.
+    var hidesPerBundle: Bool {
+        return true
+    }
+
     private weak var items: HiddenMenuItemProvider?
     private let inventory: MenuBarInventoryProviding
     private let visibility: NativeVisibilityProviding
@@ -247,9 +262,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
         // as Time Machine, which the user may place on the hidden side - an
         // allow-list entry would keep them visible there. MenuBarAgent is not
         // needed either: its items are system items, kept by
-        // systemItemsToKeep.
+        // systemItemsToKeep. The input source menu has to be named explicitly;
+        // see alwaysVisibleBundles. Notification Center and Control Center are
+        // kept so the clock's calendar/widgets panel and Control Center's
+        // modules survive the restriction.
         let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
-        let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles + systemUIBundles
+        let allowed =
+            (ownBundleIdentifier.map { [$0] } ?? []) + bundles
+            + Self.alwaysVisibleBundles + systemUIBundles
         visibility.activate(
             allowedSystemItems: Self.systemItemsToKeep,
             allowedBundleIdentifiers: allowed

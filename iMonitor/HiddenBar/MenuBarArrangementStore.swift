@@ -20,8 +20,11 @@ enum MenuBarArrangementStore {
     // MARK: - Identity
 
     /// How a row is remembered. One entry per bundle matches both the popup's
-    /// rows and the way macOS hides and shows icons (per app).
+    /// rows and the way macOS hides and shows icons (per app). System items are
+    /// always visible, so they have no remembered section - and keying them by
+    /// bundle would merge MenuBarAgent's four items into one entry.
     static func key(of info: MenuBarExtraInfo) -> String? {
+        if info.isSystemItem { return nil }
         if let bundle = info.bundleIdentifier, !bundle.isEmpty {
             return bundle
         }
@@ -33,16 +36,16 @@ enum MenuBarArrangementStore {
     // MARK: - Writing
 
     /// Saves the arrangement the popup just created: the rows in the order
-    /// they were dropped, each with the section it landed in. Only the first
-    /// placement of a bundle counts - one app owns one remembered position.
-    static func record(_ placements: [(bundle: String, section: MenuBarSection)]) {
+    /// they were dropped. `section` groups the remembered order; the popup's
+    /// Hidden/Visible split itself always follows the live bar.
+    static func record(_ placements: [(key: String, section: MenuBarSection)]) {
         var hidden: [String] = []
         var visible: [String] = []
         var seen = Set<String>()
-        for placement in placements where seen.insert(placement.bundle).inserted {
+        for placement in placements where seen.insert(placement.key).inserted {
             switch placement.section {
-            case .hidden: hidden.append(placement.bundle)
-            case .visible: visible.append(placement.bundle)
+            case .hidden: hidden.append(placement.key)
+            case .visible: visible.append(placement.key)
             }
         }
         AppConfig.menuBarArrangement = [
@@ -63,60 +66,37 @@ enum MenuBarArrangementStore {
 
     // MARK: - Reading
 
-    /// The popup rows with the remembered arrangement applied: arranged
-    /// bundles come first, in their remembered order and section; rows never
-    /// arranged follow in their live order. A bundle's remembered section wins
-    /// over its live one, so an arrangement macOS did not carry out on the
-    /// real bar still shows the way the user set it up.
+    /// The popup rows with the remembered arrangement applied as order only:
+    /// the Hidden/Visible section always follows the live bar, so an icon whose
+    /// move macOS refused is reported the way the bar shows it. Rows never
+    /// arranged follow in their live order.
     static func arranged(
         hidden: [MenuBarExtraInfo],
         visible: [MenuBarExtraInfo]
     ) -> (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) {
         let stored = AppConfig.menuBarArrangement
-        if stored.isEmpty {
-            return (hidden, visible)
-        }
+        guard !stored.isEmpty else { return (hidden, visible) }
         let hiddenIndex = index(ofBundles: stored[key(of: .hidden)] ?? [])
         let visibleIndex = index(ofBundles: stored[key(of: .visible)] ?? [])
 
-        var placedHidden: [(Int, MenuBarExtraInfo)] = []
-        var placedVisible: [(Int, MenuBarExtraInfo)] = []
-        var freshHidden: [MenuBarExtraInfo] = []
-        var freshVisible: [MenuBarExtraInfo] = []
-
-        func place(_ items: [MenuBarExtraInfo], physicallyHidden: Bool) {
+        func ordered(_ items: [MenuBarExtraInfo], _ order: [String: Int])
+            -> [MenuBarExtraInfo]
+        {
+            var placed: [(Int, MenuBarExtraInfo)] = []
+            var fresh: [MenuBarExtraInfo] = []
             for item in items {
-                if let bundle = key(of: item) {
-                    if let index = hiddenIndex[bundle] {
-                        placedHidden.append((index, item))
-                        continue
-                    }
-                    if let index = visibleIndex[bundle] {
-                        placedVisible.append((index, item))
-                        continue
-                    }
-                }
-                if physicallyHidden {
-                    freshHidden.append(item)
+                if let key = key(of: item), let index = order[key] {
+                    placed.append((index, item))
                 } else {
-                    freshVisible.append(item)
+                    fresh.append(item)
                 }
             }
+            // Ties are several items of one app sharing its remembered slot:
+            // they keep their live right-to-left order.
+            placed.sort { $0.0 != $1.0 ? $0.0 < $1.0 : $0.1.position.x > $1.1.position.x }
+            return placed.map { $0.1 } + fresh
         }
-        place(hidden, physicallyHidden: true)
-        place(visible, physicallyHidden: false)
-
-        // Ties are several items of one app sharing its remembered slot: they
-        // keep their live right-to-left order.
-        func ordered(_ placed: [(Int, MenuBarExtraInfo)]) -> [MenuBarExtraInfo] {
-            return placed.sorted {
-                $0.0 != $1.0 ? $0.0 < $1.0 : $0.1.position.x > $1.1.position.x
-            }.map { $0.1 }
-        }
-        return (
-            ordered(placedHidden) + freshHidden,
-            ordered(placedVisible) + freshVisible
-        )
+        return (ordered(hidden, hiddenIndex), ordered(visible, visibleIndex))
     }
 
     /// The hidden flag a dropped row adopts: the flag of the row it was

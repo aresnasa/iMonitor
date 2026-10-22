@@ -307,8 +307,9 @@ struct MenuBarSettingsView: View {
 
             if notchEnabled && !NotchOverflowController.hasNotch {
                 Text(
-                    "No notched display attached: the chevron lists every menu-bar icon "
-                        + "instead of just the ones hidden behind the notch."
+                    "No notched display attached: the chevron follows the Hidden Bar arrow's "
+                        + "Hidden/Visible split when icon hiding is on, and lists every icon "
+                        + "otherwise."
                 )
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)

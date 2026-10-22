@@ -23,6 +23,12 @@ protocol MenuBarEngine: AnyObject {
     // does not collapse otherwise.
     var isArrangementValid: Bool { get }
 
+    // Whether hiding applies to a whole app (native visibility is per bundle)
+    // or to each icon's slot (the legacy separator hides by position). The
+    // popup sections its rows the same way, so it never claims an icon is
+    // hidden while the bar keeps it visible.
+    var hidesPerBundle: Bool { get }
+
     // Display geometry changed. Re-applies the collapse to the live items when
     // collapsed, so a hot-plug does not leave a stale length behind.
     func invalidateLayout()
@@ -48,6 +54,8 @@ protocol MenuBarEngine: AnyObject {
 
 extension MenuBarEngine {
     var blocksSystemItemClicks: Bool { return false }
+
+    var hidesPerBundle: Bool { return false }
 
     func liftHidingBriefly(
         for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void

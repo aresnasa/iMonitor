@@ -6,6 +6,7 @@
 //  https://github.com/dwarvesf/hidden
 //
 
+import Carbon
 import Cocoa
 
 // Which section a menu-bar item belongs to, read from where the user ⌘-dragged
@@ -48,13 +49,43 @@ struct MenuBarLayout: Equatable {
     }
 }
 
+/// The menu-bar items that belong to the input source menu (the language
+/// switch). They must stay visible whatever the user arranges: hiding them
+/// removes the only way to switch input methods from the bar. The system menu
+/// is owned by TextInputMenuAgent; some third-party IMEs put their own item on
+/// the bar, so the enabled input sources' bundles are included too. Read once:
+/// adding or removing an input source takes a relaunch to show up, like the
+/// rest of the app's launch-time menu-bar setup.
+enum InputSourceVisibility {
+    static let menuAgentBundle = "com.apple.TextInputMenuAgent"
+
+    static let bundles: Set<String> = {
+        var bundles: Set<String> = [menuAgentBundle]
+        guard
+            let sources = TISCreateInputSourceList(nil, false)?.takeRetainedValue()
+                as? [TISInputSource]
+        else { return bundles }
+        for source in sources {
+            guard let value = TISGetInputSourceProperty(source, kTISPropertyBundleID)
+            else { continue }
+            bundles.insert(Unmanaged<CFString>.fromOpaque(value).takeUnretainedValue() as String)
+        }
+        return bundles
+    }()
+}
+
 enum MenuBarLayoutResolver {
-    // Bundles whose items are macOS's own controls (clock, Wi-Fi, Control Center...).
-    // They cannot be hidden by bundle, so they are left out of the layout and kept
-    // visible separately.
-    static let systemItemOwners: Set<String> = [
-        "com.apple.MenuBarAgent", "com.apple.controlcenter", "com.apple.systemuiserver",
-    ]
+    // Bundles whose items are macOS's own controls (clock, Wi-Fi, Control
+    // Center...). Their visibility is governed by the native system-item
+    // allow-list, so they are left out of the layout and kept visible
+    // separately. The input source menu (the language switch) is always kept
+    // visible too; see InputSourceVisibility. SystemUIServer is NOT one of
+    // them: its legacy extras (Time Machine...) are ordinary menu items that
+    // follow the user's arrangement, so they must be sectioned by position
+    // like any app's icons.
+    static let systemItemOwners: Set<String> = Set([
+        "com.apple.MenuBarAgent", "com.apple.controlcenter",
+    ]).union(InputSourceVisibility.bundles)
 
     static func resolve(
         inventory: [MenuBarInventoryItem],

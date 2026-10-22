@@ -279,7 +279,7 @@ final class OverflowReplicaView: NSView {
         for (index, rect) in rects.enumerated() where index != draggedIndex {
             let row = rows[index]
             OverflowRowView.drawRow(
-                icon: row.info.appIcon, title: row.title, hidden: row.isHiddenRow,
+                icon: row.info.displayIcon, title: row.title, hidden: row.isHiddenRow,
                 highlighted: false, in: rect)
         }
 
@@ -334,7 +334,7 @@ final class OverflowReplicaView: NSView {
         border.stroke()
 
         OverflowRowView.drawRow(
-            icon: row.info.appIcon, title: row.title, hidden: row.isHiddenRow,
+            icon: row.info.displayIcon, title: row.title, hidden: row.isHiddenRow,
             highlighted: false, in: ghost.insetBy(dx: 0, dy: 1))
     }
 }

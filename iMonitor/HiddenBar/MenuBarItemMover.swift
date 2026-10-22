@@ -79,7 +79,7 @@ enum MenuBarItemMover {
                         } ?? false
                     if !landed {
                         AppLogger.warn(
-                            "MenuBarItemMover: \(source.appName) did not land on the target; "
+                            "MenuBarItemMover: \(source.displayName) did not land on the target; "
                                 + "the system ignored the synthetic drag or grabbed another icon")
                     }
                     completion(landed)
@@ -119,7 +119,7 @@ enum MenuBarItemMover {
         }
 
         AppLogger.warn(
-            "MenuBarItemMover: \(source.appName) has no clickable pixel on the bar "
+            "MenuBarItemMover: \(source.displayName) has no clickable pixel on the bar "
                 + "(macOS is not drawing it); it cannot be dragged right now")
         return CGPoint(x: frame.midX, y: frame.midY)
     }
