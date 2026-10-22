@@ -213,7 +213,7 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: 240)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(Color("ContentBGColor"))
         // The menu-bar menus (gear menu, hidden-bar menu) can ask for the
         // settings section without knowing the panel's current state. Both

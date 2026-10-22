@@ -31,7 +31,9 @@ import Cocoa
 //   a new icon landing in the hidden section under the legacy mechanism.
 final class NativeVisibilityEngine: MenuBarEngine {
     // System item identifiers to keep visible. Unknown identifiers are ignored,
-    // so the range covers items a given Mac does not have.
+    // so the range covers items a given Mac does not have. macOS's own items
+    // (the clock, Wi-Fi, the battery...) are MenuBarAgent/Control Center items
+    // and are kept by this list (measured: the battery stays visible with it).
     static let systemItemsToKeep = Array(0..<64)
 
     private weak var items: HiddenMenuItemProvider?
@@ -235,13 +237,17 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private func activate(allowing bundles: [String], completion: @escaping (Bool) -> Void) {
         generation += 1
         let generation = self.generation
-        // Notification Center owns the calendar/widgets panel the clock opens.
-        // Without its bundle in the allow-list, re-applying the restriction
-        // dismisses that panel; with it, the panel survives while the apps'
-        // icons go back into hiding. (Measured: re-applying anywhere from right
-        // after the press to 0.2 s later keeps the panel open.) With Control
-        // Center allowed, its items (Wi-Fi, Control Center...) also keep
-        // working while the icons are hidden, and their menus stay open.
+        // Only the bundles whose panels must survive the restriction are kept:
+        // Notification Center (the calendar/widgets panel the clock opens;
+        // measured: re-applying anywhere from right after the press to 0.2 s
+        // later keeps the panel open) and Control Center (its menus, Wi-Fi and
+        // the battery module).
+        //
+        // SystemUIServer is deliberately NOT here: it hosts legacy extras such
+        // as Time Machine, which the user may place on the hidden side - an
+        // allow-list entry would keep them visible there. MenuBarAgent is not
+        // needed either: its items are system items, kept by
+        // systemItemsToKeep.
         let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
         let allowed = (ownBundleIdentifier.map { [$0] } ?? []) + bundles + systemUIBundles
         visibility.activate(

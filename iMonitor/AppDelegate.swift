@@ -48,6 +48,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Content floor: narrower and the fixed CPU/MEM/GPU/network columns run
     /// out of room and their labels start stacking letters vertically.
     private static let minimumPanelSize = NSSize(width: 380, height: 260)
+    /// Upper bound for the content, user-resized or restored. A remembered frame
+    /// can be corrupt (a resize that ran past the screen, a display that is
+    /// gone); restoring it unchecked leaves the settings section - the content's
+    /// top - below the screen.
+    private static let maximumPanelSize = NSSize(width: 2400, height: 2400)
     private static let panelFrameAutosaveName = "iMonitorMainPanel"
 
     static func quit() {
@@ -351,6 +356,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // minimum every row needs; the frame (size *and* position) is
             // autosaved, so the user's sizing survives the next launch.
             let hostingView = NSHostingView(rootView: contentView.withGlobalEnvironmentObjects())
+            // The panel's size belongs to the user (and to the frame autosave):
+            // without this, showing the settings section lets the hosting view's
+            // fitting size grow the window (measured: 419 -> 3349 points tall,
+            // most of the panel below the screen).
+            if #available(macOS 13.0, *) {
+                hostingView.sizingOptions = []
+            }
             hostingView.frame.size = NSSize(
                 width: Self.defaultPanelSize.width, height: Self.defaultPanelSize.height)
 
@@ -373,22 +385,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             // height floor keeps the title bar, overview and a few rows
             // visible whatever is loaded.
             panel.contentMinSize = Self.minimumPanelSize
-            panel.contentMaxSize = NSSize(width: 2400, height: 2400)
+            panel.contentMaxSize = Self.maximumPanelSize
             // Anchor at the top-right under the menu bar on the first run;
             // afterwards the autosave restores the frame the user sized,
             // however it is now.
             if !panel.setFrameUsingName(Self.panelFrameAutosaveName) {
-                positionPanelTopRight()
+                positionPanelTopRight(panel)
+            } else {
+                Self.correctPanelFrame(of: panel)
             }
             panel.setFrameAutosaveName(Self.panelFrameAutosaveName)
-            // A remembered position can be off the current screen (display
-            // unplugged, resolution changed): bring it back before showing it.
-            if let screen = NSScreen.main, !screen.visibleFrame.intersects(panel.frame) {
-                panel.center()
-            }
+            // Persist the corrected frame right away: AppKit would otherwise
+            // keep the broken one until the panel next moves or resizes.
+            panel.saveFrame(usingName: Self.panelFrameAutosaveName)
             self.panel = panel
         }
 
+        // A panel that grew past the screen (a stale autosave, a display change,
+        // a content-driven resize) would put the settings section at its top
+        // below the screen; clamp it every time it is shown.
+        Self.correctPanelFrame(of: panel)
         panel.orderFrontRegardless()
         panel.makeKey()
         startMouseMonitoring()
@@ -813,10 +829,36 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func positionPanelTopRight() {
-        guard let panel = panel, let screen = NSScreen.main else { return }
+    private func positionPanelTopRight(_ panel: NSPanel) {
+        guard let screen = NSScreen.main else { return }
         let screenRect = screen.visibleFrame
         panel.setFrameOrigin(NSPoint(x: screenRect.maxX - 440, y: screenRect.maxY - 10))
+    }
+
+    /// A restored frame can be stale or broken: clamp it into the screen it
+    /// belongs to and to the allowed size, so the panel - and the settings
+    /// section at its top - stays reachable.
+    private static func correctPanelFrame(of panel: NSPanel) {
+        let current = panel.frame
+        let screen =
+            NSScreen.screens.first { $0.visibleFrame.intersects(current) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return }
+        let chrome = current.height - panel.contentRect(forFrameRect: current).height
+        var content = panel.contentRect(forFrameRect: current).size
+        content.width = min(max(content.width, minimumPanelSize.width), maximumPanelSize.width)
+        content.height = min(max(content.height, minimumPanelSize.height), maximumPanelSize.height)
+        content.width = min(content.width, visible.width)
+        content.height = min(
+            content.height, max(visible.height - chrome, minimumPanelSize.height))
+        var frame = panel.frameRect(forContentRect: NSRect(origin: .zero, size: content))
+        // Keep the remembered top-left corner where it still fits.
+        frame.origin.x = current.minX
+        frame.origin.y = current.maxY - frame.height
+        frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+        frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+        guard frame != current else { return }
+        AppLogger.info("Panel: correcting the remembered frame \(current) to \(frame)")
+        panel.setFrame(frame, display: false)
     }
 
     func applicationWillResignActive(_ aNotification: Notification) {
