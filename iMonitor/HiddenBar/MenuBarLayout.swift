@@ -100,12 +100,15 @@ enum MenuBarSectionOverrides {
     }
 
     /// Applies the pins to resolved sections. System owners and iMonitor
-    /// itself are never pinned; their visibility is macOS's business.
+    /// itself are never pinned; their visibility is macOS's business. Bundles
+    /// absent from the inventory are ignored too, so an uninstalled app's stale
+    /// pin cannot end up in the native allow-list.
     static func applied(
         to sections: [String: MenuBarSection], excluding excluded: Set<String>
     ) -> [String: MenuBarSection] {
         var result = sections
-        for (bundle, hidden) in current where !excluded.contains(bundle) {
+        for (bundle, hidden) in current
+        where !excluded.contains(bundle) && sections[bundle] != nil {
             result[bundle] = hidden ? .hidden : .visible
         }
         return result

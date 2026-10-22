@@ -271,9 +271,12 @@ struct MenuBarSettingsView: View {
                 .font(.system(size: 9))
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-                MenuBarItemsSettingsView(model: itemsModel)
             }
+
+            // Always visible in Settings: even with hiding off this is the
+            // complete inventory of menu-bar icons, with the system items
+            // called out separately.
+            MenuBarItemsSettingsView(model: itemsModel)
 
             Toggle(
                 "Menu-bar items dropdown (double-click the iMonitor icon or the arrow)",
@@ -373,6 +376,7 @@ final class MenuBarItemsModel: ObservableObject {
     private var generation = 0
 
     func refresh() {
+        guard !isLoading else { return }
         guard AccessibilityPermission.isGranted else {
             isAuthorized = false
             hidden = []
@@ -453,8 +457,10 @@ final class MenuBarItemsModel: ObservableObject {
         for index in moved.indices { moved[index].isHidden = makeHidden }
         if makeHidden {
             hidden.append(contentsOf: moved)
+            hidden.sort { $0.info.position.x > $1.info.position.x }
         } else {
             visible.append(contentsOf: moved)
+            visible.sort { $0.info.position.x > $1.info.position.x }
         }
     }
 
@@ -483,8 +489,9 @@ struct MenuBarItemsSettingsView: View {
                 Spacer()
                 Button("Refresh") { model.refresh() }
                     .controlSize(.small)
+                    .disabled(model.isLoading)
                     .help("Re-read every app's menu-bar icons")
-                Button("Reset") { model.resetPins() }
+                Button("Reset Pins") { model.resetPins() }
                     .controlSize(.small)
                     .disabled(!model.canConfigure)
                     .help("Forget manual Hidden/Visible choices")
@@ -500,8 +507,13 @@ struct MenuBarItemsSettingsView: View {
             } else {
                 if !model.canConfigure {
                     MenuBarItemsHint(
-                        "Manual Hide/Show needs per-app hiding (macOS 27). Position the arrow "
-                            + "or ⌘-drag rows in the dropdown instead.")
+                        "Manual Hide/Show needs per-app hiding (macOS 27) and Hide menu-bar "
+                            + "icons enabled. Position the arrow or ⌘-drag rows in the dropdown "
+                            + "instead.")
+                } else {
+                    MenuBarItemsHint(
+                        "Hidden/Visible here pins an app and overrides the arrow position. "
+                            + "The eye button moves every icon the app owns.")
                 }
                 group("Hidden", model.hidden, hidden: true)
                 group("Visible", model.visible, hidden: false)
@@ -584,6 +596,7 @@ private struct MenuBarItemIcon: View {
         Group {
             if let image {
                 Image(nsImage: image)
+                    .renderingMode(image.isTemplate ? .template : .original)
                     .resizable()
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)

@@ -373,11 +373,14 @@ enum MenuBarItemsResolver {
         let systemItems = extras.filter { $0.isSystemItem }
             .sorted { $0.position.x > $1.position.x }
         let otherItems = extras.filter { !$0.isSystemItem }
+        // Manual pins are a native-hiding concept; the legacy separator hides
+        // by position, so honoring a pin there would lie about the bar.
+        let effectiveOverrides = hidesPerBundle ? overrides : [:]
         let classified: (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) =
             hasSections
             ? MenuBarExtraClassifier.classify(
                 otherItems, boundary: boundaryX, isLTR: isLTR,
-                hidesPerBundle: hidesPerBundle, overrides: overrides)
+                hidesPerBundle: hidesPerBundle, overrides: effectiveOverrides)
             : (hidden: [], visible: otherItems)
         let visibleWithSystem = (classified.visible + systemItems)
             .sorted { $0.position.x > $1.position.x }
