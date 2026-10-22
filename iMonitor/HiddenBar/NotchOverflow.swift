@@ -90,7 +90,7 @@ struct MenuBarExtraInfo {
                 return Self.symbol(symbolName)
             }
         }
-        return appIcon
+        return appIcon ?? Self.symbol("menubar.rectangle")
     }
 
     private static func symbol(_ name: String) -> NSImage? {
@@ -149,7 +149,10 @@ struct MenuBarExtraInfo {
     /// description carries no percentage.
     private static func batterySymbol(for description: String?) -> String {
         guard let description,
-            let range = description.range(of: #"\d{1,3}"#, options: .regularExpression),
+            let regex = try? NSRegularExpression(pattern: #"(\d{1,3})\s*[%％]"#),
+            let match = regex.firstMatch(
+                in: description, range: NSRange(description.startIndex..., in: description)),
+            let range = Range(match.range(at: 1), in: description),
             let percent = Int(description[range])
         else { return "battery.100" }
         if description.contains("充电")
@@ -821,7 +824,19 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         var remaining = rows
         let source = remaining.remove(at: draggedIndex)
         guard !remaining.isEmpty else { return }
-        let target = remaining[min(insertIndex, remaining.count - 1)]
+        var targetIndex = min(insertIndex, remaining.count - 1)
+        // System rows sit at the end of the Visible section. Dropping above
+        // one means "the end of the app icons"; aiming the synthetic drag at
+        // the clock/battery would either fail or move the icon into the
+        // system area.
+        if remaining[targetIndex].info.isSystemItem,
+            let nonSystem = remaining[..<targetIndex].lastIndex(where: {
+                !$0.info.isSystemItem
+            })
+        {
+            targetIndex = nonSystem
+        }
+        let target = remaining[targetIndex]
 
         // Remember the arrangement the drop just made, regardless of what
         // becomes of the physical move below: on a Mac where the synthetic

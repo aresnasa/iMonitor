@@ -124,19 +124,46 @@ enum MenuBarItemMover {
         return CGPoint(x: frame.midX, y: frame.midY)
     }
 
-    /// The hit test hands back a freshly resolved element, so equality is
-    /// checked both ways: by identity and by (pid, position).
+    /// The hit test hands back a freshly resolved element, often a child of the
+    /// status item rather than the item itself, so both the element and its
+    /// ancestors are checked. Equality is by identity, or by pid plus a frame
+    /// that matches (or lies inside) the item's slot.
     private static func isSameItem(_ hit: AXUIElement, as known: AXUIElement, frame: CGRect) -> Bool
     {
-        if CFEqual(hit, known) { return true }
-        var hitPID: pid_t = 0
         var knownPID: pid_t = 0
-        AXUIElementGetPid(hit, &hitPID)
         AXUIElementGetPid(known, &knownPID)
-        guard hitPID == knownPID else { return false }
-        guard let hitFrame = elementFrame(hit) else { return false }
-        return abs(hitFrame.origin.x - frame.origin.x) < 2
-            && abs(hitFrame.origin.y - frame.origin.y) < 2
+
+        var element = hit
+        for _ in 0..<4 {
+            if CFEqual(element, known) { return true }
+            var pid: pid_t = 0
+            AXUIElementGetPid(element, &pid)
+            if pid == knownPID, let hitFrame = elementFrame(element) {
+                if abs(hitFrame.origin.x - frame.origin.x) < 2
+                    && abs(hitFrame.origin.y - frame.origin.y) < 2
+                {
+                    return true
+                }
+                if hitFrame.width > 0, hitFrame.height > 0,
+                    frame.contains(CGPoint(x: hitFrame.midX, y: hitFrame.midY))
+                {
+                    return true
+                }
+            }
+            guard let parent = parent(of: element) else { break }
+            element = parent
+        }
+        return false
+    }
+
+    private static func parent(of element: AXUIElement) -> AXUIElement? {
+        var value: AnyObject?
+        guard
+            AXUIElementCopyAttributeValue(element, kAXParentAttribute as CFString, &value)
+                == .success,
+            let value, CFGetTypeID(value) == AXUIElementGetTypeID()
+        else { return nil }
+        return unsafeBitCast(value, to: AXUIElement.self)
     }
 
     // MARK: - AX access
