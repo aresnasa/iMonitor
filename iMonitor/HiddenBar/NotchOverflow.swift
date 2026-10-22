@@ -248,7 +248,8 @@ enum MenuBarExtraClassifier {
         _ extras: [MenuBarExtraInfo],
         boundary: CGFloat,
         isLTR: Bool = true,
-        hidesPerBundle: Bool = false
+        hidesPerBundle: Bool = false,
+        overrides: [String: Bool] = [:]
     ) -> (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) {
         // A zero-frame item is one macOS is not drawing (native hiding removed
         // it from the bar, or the read failed). It has no position to judge,
@@ -314,9 +315,20 @@ enum MenuBarExtraClassifier {
         var hidden: [MenuBarExtraInfo] = []
         var visible: [MenuBarExtraInfo] = []
         for (index, item) in sorted.enumerated() {
-            if isHidden[index] { hidden.append(item) } else { visible.append(item) }
+            if let bundle = item.bundleIdentifier, let pinned = overrides[bundle] {
+                // Manual pins win over the arrow position and the bundle rule.
+                if pinned { hidden.append(item) } else { visible.append(item) }
+            } else if isHidden[index] {
+                hidden.append(item)
+            } else {
+                visible.append(item)
+            }
         }
         for item in unmeasured {
+            if let bundle = item.bundleIdentifier, let pinned = overrides[bundle] {
+                if pinned { hidden.append(item) } else { visible.append(item) }
+                continue
+            }
             let siblingIsVisible =
                 hidesPerBundle
                 && MenuBarArrangementStore.key(of: item).map { visibleBundleKeys.contains($0) }
@@ -331,6 +343,50 @@ enum MenuBarExtraClassifier {
 }
 
 // MARK: - NotchOverflowController
+
+/// The dropdown's and the Settings list's shared view of the menu bar. Both
+/// must group rows identically, or the same icon would read Hidden in one
+/// place and Visible in the other.
+struct MenuBarItemsSnapshot {
+    let hidden: [MenuBarExtraInfo]
+    let visible: [MenuBarExtraInfo]
+    /// Always-visible items (clock, Wi-Fi, battery, Control Center, the input
+    /// source...). They are also part of `visible`; this is the subset the
+    /// Settings list shows separately.
+    let system: [MenuBarExtraInfo]
+
+    var flat: [MenuBarExtraInfo] { hidden + visible }
+}
+
+enum MenuBarItemsResolver {
+    static func resolve(
+        extras: [MenuBarExtraInfo],
+        hiddenBoundary: CGFloat?,
+        notchBoundary: CGFloat,
+        hasNotch: Bool,
+        hidesPerBundle: Bool,
+        isLTR: Bool,
+        overrides: [String: Bool] = MenuBarSectionOverrides.current
+    ) -> MenuBarItemsSnapshot {
+        let hasSections = hasNotch || hiddenBoundary != nil
+        let boundaryX = hiddenBoundary ?? notchBoundary
+        let systemItems = extras.filter { $0.isSystemItem }
+            .sorted { $0.position.x > $1.position.x }
+        let otherItems = extras.filter { !$0.isSystemItem }
+        let classified: (hidden: [MenuBarExtraInfo], visible: [MenuBarExtraInfo]) =
+            hasSections
+            ? MenuBarExtraClassifier.classify(
+                otherItems, boundary: boundaryX, isLTR: isLTR,
+                hidesPerBundle: hidesPerBundle, overrides: overrides)
+            : (hidden: [], visible: otherItems)
+        let visibleWithSystem = (classified.visible + systemItems)
+            .sorted { $0.position.x > $1.position.x }
+        let arranged = MenuBarArrangementStore.arranged(
+            hidden: classified.hidden, visible: visibleWithSystem)
+        return MenuBarItemsSnapshot(
+            hidden: arranged.hidden, visible: arranged.visible, system: systemItems)
+    }
+}
 
 class NotchOverflowController: NSObject, NSMenuDelegate {
 

@@ -247,6 +247,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return panel?.isVisible ?? false
     }
 
+    // Read by the Settings menu-bar items list, which uses the same boundary
+    // and hiding granularity as the dropdown.
+    var menuBarHiddenBoundaryX: CGFloat? {
+        return hiddenBarController?.hiddenBoundaryX
+    }
+
+    var menuBarHidesItemsPerBundle: Bool {
+        return hiddenBarController?.hidesMenuBarItemsPerBundle ?? false
+    }
+
     /// Open the panel with the settings section showing (menu-bar menu entry).
     func showSettingsFromMenuBar() {
         if panel?.isVisible != true {

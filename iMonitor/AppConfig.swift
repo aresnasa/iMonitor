@@ -66,6 +66,14 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "menuBarArrangement", default: [String: [String]]())
     static var menuBarArrangement: [String: [String]]
 
+    /// Manual Hidden/Visible pins for menu-bar items, keyed by owning bundle.
+    /// A pin wins over the arrow-position section, so the Settings list can
+    /// configure an app without moving its icon; ⌘-dragging a row in the
+    /// dropdown writes the same pin. macOS 27 hides per bundle, which is what
+    /// makes the pin enforceable; the legacy engine ignores it.
+    @UserDefaultsWrapper(key: "menuBarItemSectionOverrides", default: [String: Bool]())
+    static var menuBarItemSectionOverrides: [String: Bool]
+
     // MARK: - Permission onboarding
 
     /// Whether the first-launch Accessibility walkthrough was dealt with -

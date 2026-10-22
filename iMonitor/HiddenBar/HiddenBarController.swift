@@ -802,6 +802,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // MARK: - Notifications
 
     @objc private func handlePreferencesChanged() {
+        // The Settings list's manual Hidden/Visible pins live in preferences;
+        // re-apply them while collapsed so a toggle takes effect right away.
+        menuBarEngine.applySectionOverrides()
         autoCollapseIfNeeded()
     }
 

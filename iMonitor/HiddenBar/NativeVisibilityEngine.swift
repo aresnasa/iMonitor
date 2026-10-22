@@ -249,7 +249,13 @@ final class NativeVisibilityEngine: MenuBarEngine {
 
     // Activates the new restriction before dropping the old one, so switching
     // between collapsed and expanded never flashes the whole bar visible.
-    private func activate(allowing bundles: [String], completion: @escaping (Bool) -> Void) {
+    // `keepingCurrentOnFailure` is for a settings-driven re-apply: refusing the
+    // new pins must not pop the whole bar open.
+    private func activate(
+        allowing bundles: [String],
+        keepingCurrentOnFailure: Bool = false,
+        completion: @escaping (Bool) -> Void
+    ) {
         generation += 1
         let generation = self.generation
         // Only the bundles whose panels must survive the restriction are kept:
@@ -287,7 +293,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
             case .failure(let error):
                 // Fail open: never leave icons hidden after an error.
                 AppLogger.error(error, context: "NativeVisibility: activation failed")
-                self.releaseAssertion()
+                if !keepingCurrentOnFailure {
+                    self.releaseAssertion()
+                }
                 completion(false)
             }
         }
@@ -300,6 +308,33 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private func setItemsHidden(_ hidden: Bool) {
         // The separator goes off the bar entirely under native hiding.
         items?.separatorItem.isVisible = !hidden
+    }
+
+    /// Applies the Settings list's manual Hidden/Visible pins to the cached
+    /// layout. Hidden items cannot be re-read while the restriction is active
+    /// (their frames are stale), but the bundle sections are already known, so
+    /// the allow-list can be rebuilt without a snapshot.
+    func applySectionOverrides() {
+        guard var layout = layout else { return }
+        var excluded = MenuBarLayoutResolver.systemItemOwners
+        if let ownBundleIdentifier {
+            excluded.insert(ownBundleIdentifier)
+        }
+        let updated = MenuBarSectionOverrides.applied(
+            to: layout.sections, excluding: excluded)
+        guard updated != layout.sections else { return }
+        layout.sections = updated
+        self.layout = layout
+        guard state == .collapsed, assertion != nil, !isLifted else { return }
+        activate(
+            allowing: layout.bundles(in: [.visible]), keepingCurrentOnFailure: true
+        ) { succeeded in
+            if !succeeded {
+                AppLogger.warn(
+                    "NativeVisibility: new Hidden/Visible pins were not applied; "
+                        + "keeping the previous hiding")
+            }
+        }
     }
 
     // Any arrangement works: whatever sits left of the arrow is the hidden section.

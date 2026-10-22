@@ -29,6 +29,12 @@ protocol MenuBarEngine: AnyObject {
     // hidden while the bar keeps it visible.
     var hidesPerBundle: Bool { get }
 
+    // Re-applies the hiding after the manual Hidden/Visible pins changed while
+    // the bar is collapsed. Native hiding can do this from its cached layout
+    // without a fresh (and unreliable) read of the restricted bar; the legacy
+    // engine has nothing to re-apply.
+    func applySectionOverrides()
+
     // Display geometry changed. Re-applies the collapse to the live items when
     // collapsed, so a hot-plug does not leave a stale length behind.
     func invalidateLayout()
@@ -56,6 +62,8 @@ extension MenuBarEngine {
     var blocksSystemItemClicks: Bool { return false }
 
     var hidesPerBundle: Bool { return false }
+
+    func applySectionOverrides() {}
 
     func liftHidingBriefly(
         for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void

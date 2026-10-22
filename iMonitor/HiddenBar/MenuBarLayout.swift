@@ -74,6 +74,44 @@ enum InputSourceVisibility {
     }()
 }
 
+/// Manual Hidden/Visible pins, keyed by owning bundle. The arrow position is
+/// still the default section; a pin merely overrides it for that app, so the
+/// Settings list can configure hiding without physically moving icons and a
+/// dropped dropdown row survives a failed synthetic drag. macOS 27 hides per
+/// bundle, which is what makes the pin enforceable.
+enum MenuBarSectionOverrides {
+    static var current: [String: Bool] {
+        return AppConfig.menuBarItemSectionOverrides
+    }
+
+    static func hidden(for bundle: String?) -> Bool? {
+        guard let bundle, !bundle.isEmpty else { return nil }
+        return current[bundle]
+    }
+
+    static func set(_ bundle: String, hidden: Bool) {
+        var overrides = current
+        overrides[bundle] = hidden
+        AppConfig.menuBarItemSectionOverrides = overrides
+    }
+
+    static func clear() {
+        AppConfig.menuBarItemSectionOverrides = [:]
+    }
+
+    /// Applies the pins to resolved sections. System owners and iMonitor
+    /// itself are never pinned; their visibility is macOS's business.
+    static func applied(
+        to sections: [String: MenuBarSection], excluding excluded: Set<String>
+    ) -> [String: MenuBarSection] {
+        var result = sections
+        for (bundle, hidden) in current where !excluded.contains(bundle) {
+            result[bundle] = hidden ? .hidden : .visible
+        }
+        return result
+    }
+}
+
 enum MenuBarLayoutResolver {
     // Bundles whose items are macOS's own controls (clock, Wi-Fi, Control
     // Center...). Their visibility is governed by the native system-item
@@ -108,7 +146,12 @@ enum MenuBarLayoutResolver {
             // is never hidden because a sibling sits in the hidden section.
             sections[bundle] = min(sections[bundle] ?? section, section)
         }
-        return MenuBarLayout(sections: sections)
+        var excluded = systemItemOwners
+        if let ownBundle {
+            excluded.insert(ownBundle)
+        }
+        return MenuBarLayout(
+            sections: MenuBarSectionOverrides.applied(to: sections, excluding: excluded))
     }
 
     static func section(
