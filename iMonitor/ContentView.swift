@@ -63,7 +63,16 @@ struct ContentView: View {
             Divider()
 
             if showSettings {
-                SettingsView()
+                // The settings pane is tall (theme, resource columns, the whole
+                // Menu Bar section). Left unconstrained it takes the panel's
+                // entire height and pushes the CPU/MEM/GPU overview and the
+                // process list below the window. Give it a bounded, scrollable
+                // slice so those stay visible.
+                ScrollView(.vertical, showsIndicators: true) {
+                    SettingsView()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 420)
                 Divider()
             }
 
