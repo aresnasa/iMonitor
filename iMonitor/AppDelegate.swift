@@ -594,7 +594,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showNotchItemsFromMenu(_ sender: AnyObject?) {
-        showMenuBarItemsDropdown()
+        // This action runs while the gear menu's tracking loop is still
+        // unwinding. Present the dropdown after it has closed, or the status
+        // item's pop-up can be swallowed by the menu that sent the action.
+        DispatchQueue.main.async { [weak self] in
+            self?.showMenuBarItemsDropdown()
+        }
     }
 
     /// The menu-bar items dropdown, popped from the main icon. Shared by the

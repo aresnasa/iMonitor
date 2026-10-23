@@ -22,6 +22,9 @@ final class OverflowRowView: NSView {
 
     /// ⌘-click: begin a rearrangement drag. The handler tears the menu down.
     var onCommandDrag: ((OverflowRowView) -> Void)?
+    /// Click on the eye marker: pin this app Hidden/Visible. The menu is rebuilt
+    /// so the row moves to the other section.
+    var onToggleHidden: ((OverflowRowView) -> Void)?
     /// Plain click inside the row: activate the real menu-bar item.
     var onActivate: ((MenuBarExtraInfo) -> Void)?
 
@@ -60,6 +63,11 @@ final class OverflowRowView: NSView {
     /// applies; a crossed-out eye marks the rows the bar is not showing.
     private static let eyeImage = eyeSymbol("eye")
     private static let eyeSlashImage = eyeSymbol("eye.slash")
+    /// System items (clock, Wi-Fi, battery, input source...) belong to macOS;
+    /// the marker says so instead of pretending they can be toggled. Off-bar
+    /// items warn instead: their owner app has no status item to show.
+    private static let lockImage = eyeSymbol("lock.fill")
+    private static let warningImage = eyeSymbol("exclamationmark.triangle.fill")
 
     private static func eyeSymbol(_ name: String) -> NSImage? {
         let configuration = NSImage.SymbolConfiguration(pointSize: eyeSize - 1, weight: .regular)
@@ -81,7 +89,7 @@ final class OverflowRowView: NSView {
     }
 
     private var title: String {
-        info.displayName
+        info.rowTitle
     }
 
     // MARK: - Drawing
@@ -89,15 +97,34 @@ final class OverflowRowView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         Self.drawRow(
             icon: info.displayIcon, title: title, hidden: isHiddenRow,
+            system: info.isSystemItem, onBar: info.isOnMenuBar,
             highlighted: enclosingMenuItem?.isHighlighted == true,
             in: bounds)
+    }
+
+    /// The hit target around the marker. Bigger than the glyph, so a click on
+    /// the eye is comfortable; `drawRow` and the mouse handlers share it.
+    static func eyeHitRect(in rect: NSRect) -> NSRect {
+        return eyeRect(in: rect).insetBy(dx: -4, dy: -4)
+    }
+
+    private static func eyeRect(in rect: NSRect) -> NSRect {
+        let iconRect = NSRect(
+            x: rect.minX + horizontalPadding,
+            y: rect.midY - iconSize / 2,
+            width: iconSize, height: iconSize)
+        return NSRect(
+            x: iconRect.maxX + iconEyeSpacing,
+            y: rect.midY - eyeSize / 2,
+            width: eyeSize, height: eyeSize)
     }
 
     /// Shared by the menu rows and the drag session's replica, so a row looks
     /// identical in both. `rect` is one row tall; content is centred in it and
     /// drawing works in flipped and unflipped contexts alike.
     static func drawRow(
-        icon: NSImage?, title: String, hidden: Bool, highlighted: Bool, in rect: NSRect
+        icon: NSImage?, title: String, hidden: Bool, system: Bool = false,
+        onBar: Bool = true, highlighted: Bool, in rect: NSRect
     ) {
         if highlighted {
             NSColor.selectedContentBackgroundColor.setFill()
@@ -126,16 +153,16 @@ final class OverflowRowView: NSView {
         // Shown/not-shown marker: an eye in a fixed-width slot after the app
         // icon, so every title starts at the same x. A crossed-out eye marks
         // the rows the bar is not showing (they can still be activated here);
-        // the muted color matches their dimmed app icon.
-        let eyeRect = NSRect(
-            x: iconRect.maxX + iconEyeSpacing,
-            y: rect.midY - eyeSize / 2,
-            width: eyeSize, height: eyeSize)
-        if let eye = hidden ? eyeSlashImage : eyeImage {
-            let eyeColor: NSColor =
+        // the muted color matches their dimmed app icon. System items show a
+        // lock: macOS owns their visibility, iMonitor cannot hide them.
+        let eyeRect = Self.eyeRect(in: rect)
+        let marker =
+            system ? lockImage : (onBar ? (hidden ? eyeSlashImage : eyeImage) : warningImage)
+        if let marker = marker {
+            let markerColor: NSColor =
                 highlighted
                 ? .selectedMenuItemTextColor : (hidden ? .secondaryLabelColor : .labelColor)
-            Self.draw(eye, in: eyeRect, color: eyeColor)
+            Self.draw(marker, in: eyeRect, color: markerColor)
         }
 
         let attributes: [NSAttributedString.Key: Any] = [
@@ -207,10 +234,22 @@ final class OverflowRowView: NSView {
 
     // MARK: - Mouse
 
+    override func resetCursorRects() {
+        addCursorRect(
+            Self.eyeHitRect(in: bounds),
+            cursor: info.isSystemItem || !info.isOnMenuBar ? .arrow : .pointingHand)
+    }
+
     // Plain menu items never see mouse events; a custom item view does, which is
     // the whole point: it is how ⌘-drag is told apart from a click. The menu's
     // own tracking loop still highlights rows and handles keyboard navigation.
     override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if Self.eyeHitRect(in: bounds).contains(point) {
+            // Clicking the marker toggles the section; it must not start a
+            // ⌘-drag (which would tear the menu down and move the icon).
+            return
+        }
         if event.modifierFlags.contains(.command) {
             onCommandDrag?(self)
         }
@@ -220,6 +259,21 @@ final class OverflowRowView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard let item = enclosingMenuItem, let menu = item.menu else { return }
         let point = convert(event.locationInWindow, from: nil)
+
+        // The eye is a button: pin the app Hidden/Visible. System items show a
+        // lock there and stay inert.
+        if Self.eyeHitRect(in: bounds).contains(point) {
+            // The marker is inert for system items (a lock) and for off-bar
+            // items (a warning): there is no section to toggle.
+            guard !info.isSystemItem, info.isOnMenuBar else { return }
+            menu.cancelTracking()
+            onToggleHidden?(self)
+            return
+        }
+
+        // An off-bar row has no reachable AX slot to press; its controller
+        // gives it an owner-app activation instead, which the menu closes into
+        // like a normal row.
         if bounds.contains(point), menu.highlightedItem === item {
             // View-based rows do not run the item action for clicks, so close
             // the menu and activate explicitly.

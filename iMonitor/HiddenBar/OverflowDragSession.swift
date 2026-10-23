@@ -280,6 +280,7 @@ final class OverflowReplicaView: NSView {
             let row = rows[index]
             OverflowRowView.drawRow(
                 icon: row.info.displayIcon, title: row.title, hidden: row.isHiddenRow,
+                system: row.info.isSystemItem, onBar: row.info.isOnMenuBar,
                 highlighted: false, in: rect)
         }
 
@@ -335,6 +336,7 @@ final class OverflowReplicaView: NSView {
 
         OverflowRowView.drawRow(
             icon: row.info.displayIcon, title: row.title, hidden: row.isHiddenRow,
+            system: row.info.isSystemItem, onBar: row.info.isOnMenuBar,
             highlighted: false, in: ghost.insetBy(dx: 0, dy: 1))
     }
 }

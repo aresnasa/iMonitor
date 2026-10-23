@@ -74,6 +74,32 @@ enum InputSourceVisibility {
     }()
 }
 
+/// Where a status item actually is. AX positions are top-left based; NSScreen
+/// frames are bottom-left based with the primary display at (0,0). An item
+/// macOS removed reports a sentinel frame at the bottom-left corner instead of
+/// a menu-bar slot, which must not be mistaken for the hidden side of the bar.
+enum MenuBarPlacement {
+    static func isOnMenuBar(position: CGPoint, size: CGSize) -> Bool {
+        guard size.width > 0, size.height > 0, position.x.isFinite, position.y.isFinite
+        else { return false }
+        guard let primary = NSScreen.screens.first else { return position.y < 60 }
+        let cocoaY = primary.frame.maxY - position.y - size.height
+        let frame = CGRect(x: position.x, y: cocoaY, width: size.width, height: size.height)
+        return NSScreen.screens.contains { screen in
+            // The menu bar is the top strip of a display; 44pt covers the
+            // largest built-in bar plus the notch housing.
+            let band = CGRect(
+                x: screen.frame.minX, y: screen.frame.maxY - 44,
+                width: screen.frame.width, height: 44)
+            return band.intersects(frame)
+        }
+    }
+
+    static func isOnMenuBar(_ frame: CGRect) -> Bool {
+        return isOnMenuBar(position: frame.origin, size: frame.size)
+    }
+}
+
 /// Manual Hidden/Visible pins, keyed by owning bundle. The arrow position is
 /// still the default section; a pin merely overrides it for that app, so the
 /// Settings list can configure hiding without physically moving icons and a
@@ -140,6 +166,14 @@ enum MenuBarLayoutResolver {
                 bundle != ownBundle,
                 !systemItemOwners.contains(bundle)
             else { continue }
+            // macOS is not drawing this item on a menu bar (removed/sentinel
+            // frame). Do not hide it by a position it does not have: default
+            // it to visible, so the allow-list cannot keep suppressing it if
+            // the owner restores its status item.
+            guard MenuBarPlacement.isOnMenuBar(item.frame) else {
+                sections[bundle] = .visible
+                continue
+            }
             let section = self.section(
                 of: item.frame,
                 separatorFrame: separatorFrame,

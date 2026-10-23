@@ -360,13 +360,14 @@ struct MenuBarSettingsItem: Identifiable {
     var isHidden: Bool
     let isSystem: Bool
     let canToggle: Bool
-    let isDrawnOnBar: Bool
+    let isOnMenuBar: Bool
 }
 
 final class MenuBarItemsModel: ObservableObject {
     @Published private(set) var hidden: [MenuBarSettingsItem] = []
     @Published private(set) var visible: [MenuBarSettingsItem] = []
     @Published private(set) var system: [MenuBarSettingsItem] = []
+    @Published private(set) var offBar: [MenuBarSettingsItem] = []
     @Published private(set) var isLoading = false
     @Published private(set) var isAuthorized = AccessibilityPermission.isGranted
     @Published private(set) var canConfigure = false
@@ -382,6 +383,7 @@ final class MenuBarItemsModel: ObservableObject {
             hidden = []
             visible = []
             system = []
+            offBar = []
             isLoading = false
             return
         }
@@ -413,6 +415,8 @@ final class MenuBarItemsModel: ObservableObject {
                 canConfigure: hidesPerBundle)
             self.system = Self.rows(
                 snapshot.system, hidden: false, canConfigure: false)
+            self.offBar = Self.rows(
+                snapshot.offBar, hidden: false, canConfigure: false)
             self.isLoading = false
         }
     }
@@ -438,7 +442,7 @@ final class MenuBarItemsModel: ObservableObject {
                 isSystem: info.isSystemItem,
                 canToggle: canConfigure && !info.isSystemItem
                     && info.bundleIdentifier?.isEmpty == false,
-                isDrawnOnBar: info.isDrawnOnBar)
+                isOnMenuBar: info.isOnMenuBar)
         }
     }
 
@@ -468,6 +472,10 @@ final class MenuBarItemsModel: ObservableObject {
         MenuBarSectionOverrides.clear()
         AppConfig.notifyPreferencesChanged()
         refresh()
+    }
+
+    func openOwnerApp(_ row: MenuBarSettingsItem) {
+        NSRunningApplication(processIdentifier: row.info.pid)?.activate()
     }
 }
 
@@ -501,7 +509,7 @@ struct MenuBarItemsSettingsView: View {
                 MenuBarItemsHint(
                     "Accessibility permission is required to list menu-bar icons.")
             } else if !model.isLoading && model.hidden.isEmpty && model.visible.isEmpty
-                && model.system.isEmpty
+                && model.system.isEmpty && model.offBar.isEmpty
             {
                 MenuBarItemsHint("No menu-bar items found.")
             } else {
@@ -518,6 +526,14 @@ struct MenuBarItemsSettingsView: View {
                 group("Hidden", model.hidden, hidden: true)
                 group("Visible", model.visible, hidden: false)
                 group("Always visible", model.system, hidden: false)
+                if !model.offBar.isEmpty {
+                    group("Not on the menu bar", model.offBar, hidden: false)
+                    Button("Open Menu Bar Settings…") {
+                        openMenuBarSettings()
+                    }
+                    .controlSize(.small)
+                    .help("Enable the app's item in System Settings › Control Center › Menu Bar")
+                }
             }
         }
         .onAppear { model.refresh() }
@@ -547,8 +563,8 @@ struct MenuBarItemsSettingsView: View {
                             .font(.system(size: 11))
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        if !row.isDrawnOnBar {
-                            Text("not currently drawn on the bar")
+                        if !row.isOnMenuBar {
+                            Text("not currently drawn on the bar — relaunch the app")
                                 .font(.system(size: 8))
                                 .foregroundColor(.secondary)
                         }
@@ -558,6 +574,10 @@ struct MenuBarItemsSettingsView: View {
                         Text("System")
                             .font(.system(size: 9))
                             .foregroundColor(.secondary)
+                    } else if !row.isOnMenuBar {
+                        Button("Open") { model.openOwnerApp(row) }
+                            .controlSize(.small)
+                            .help("Open the app and choose a menu-bar icon")
                     } else if row.canToggle {
                         Button {
                             model.toggle(row)
@@ -572,6 +592,16 @@ struct MenuBarItemsSettingsView: View {
                 .opacity(hidden ? 0.7 : 1)
             }
         }
+    }
+
+    /// The macOS menu-bar management UI is the supported way to bring back an
+    /// item the system removed from the bar.
+    private func openMenuBarSettings() {
+        guard
+            let url = URL(
+                string: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension")
+        else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 

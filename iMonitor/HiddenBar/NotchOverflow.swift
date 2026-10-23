@@ -44,6 +44,20 @@ struct MenuBarExtraInfo {
         return size.width > 0 && size.height > 0
     }
 
+    /// Whether the item's frame is a real menu-bar slot. A status item macOS
+    /// removed reports a sentinel at the bottom-left corner; One Switch hit
+    /// this after being hidden, and hiding it by position would keep it
+    /// suppressed even after the app restores it.
+    var isOnMenuBar: Bool {
+        return MenuBarPlacement.isOnMenuBar(position: position, size: size)
+    }
+
+    /// The title a dropdown row shows. Off-bar items are grouped separately,
+    /// so the name itself stays clean.
+    var rowTitle: String {
+        displayName
+    }
+
     /// What a row shows. System items have no AXTitle; their description is the
     /// localized name, with a status suffix for Wi-Fi ("Wi‑Fi，已接入，3格") that
     /// is not part of the name.
@@ -354,8 +368,12 @@ struct MenuBarItemsSnapshot {
     /// source...). They are also part of `visible`; this is the subset the
     /// Settings list shows separately.
     let system: [MenuBarExtraInfo]
+    /// Items whose owner is running but whose status item is not on a menu bar
+    /// (macOS removed it, or the app stopped publishing it). They are neither
+    /// hidden nor visible by the bar's rules, so they get their own group.
+    let offBar: [MenuBarExtraInfo]
 
-    var flat: [MenuBarExtraInfo] { hidden + visible }
+    var flat: [MenuBarExtraInfo] { hidden + visible + offBar }
 }
 
 enum MenuBarItemsResolver {
@@ -382,12 +400,34 @@ enum MenuBarItemsResolver {
                 otherItems, boundary: boundaryX, isLTR: isLTR,
                 hidesPerBundle: hidesPerBundle, overrides: effectiveOverrides)
             : (hidden: [], visible: otherItems)
-        let visibleWithSystem = (classified.visible + systemItems)
+        // An item whose frame is a sentinel/off-bar is not on the hidden side
+        // of anything - macOS removed it, or its app stopped publishing the
+        // status item. It belongs in neither Hidden nor Visible: give it its
+        // own group so the dropdown does not claim the collapsed bar hid it.
+        var hiddenItems: [MenuBarExtraInfo] = []
+        var visibleItems: [MenuBarExtraInfo] = []
+        var offBarItems: [MenuBarExtraInfo] = []
+        for item in classified.hidden {
+            if item.isDrawnOnBar && !item.isOnMenuBar {
+                offBarItems.append(item)
+            } else {
+                hiddenItems.append(item)
+            }
+        }
+        for item in classified.visible {
+            if item.isDrawnOnBar && !item.isOnMenuBar {
+                offBarItems.append(item)
+            } else {
+                visibleItems.append(item)
+            }
+        }
+        let visibleWithSystem = (visibleItems + systemItems)
             .sorted { $0.position.x > $1.position.x }
         let arranged = MenuBarArrangementStore.arranged(
-            hidden: classified.hidden, visible: visibleWithSystem)
+            hidden: hiddenItems, visible: visibleWithSystem)
         return MenuBarItemsSnapshot(
-            hidden: arranged.hidden, visible: arranged.visible, system: systemItems)
+            hidden: arranged.hidden, visible: arranged.visible, system: systemItems,
+            offBar: offBarItems.sorted { $0.displayName < $1.displayName })
     }
 }
 
@@ -420,6 +460,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     var onMenuWillPresent: ((NSStatusItem) -> Void)?
 
     var onMenuDidDismiss: ((NSStatusItem) -> Void)?
+    /// The status item hosting the current dropdown, so an eye toggle can
+    /// rebuild the list from the same anchor.
+    private weak var presentingItem: NSStatusItem?
     private var dragSession: OverflowDragSession?
     /// The reorderable rows of the menu last built, in display order.
     private var menuRows: [OverflowDragSession.Row] = []
@@ -476,6 +519,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     /// which time the originating click has finished dispatching (never call
     /// performClick re-entrantly from within the button's own action).
     func showOverflowMenu(near item: NSStatusItem) {
+        presentingItem = item
         guard Permission.isGranted else {
             // Prompt only while it can still help (first-time setup); once the
             // user dealt with setup - or holds a grant for another build - the
@@ -490,31 +534,27 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             item.button?.highlight(false)
             guard let self = self else { return }
             let menu = self.buildOverflowMenu(extras: extras, boundary: boundary)
-            item.menu = menu
-            self.onMenuWillPresent?(item)
-            item.button?.performClick(nil)
-            // performClick runs the menu's tracking loop, so this line is only
-            // reached once the menu has closed.
-            self.onMenuDidDismiss?(item)
-            // Detach so the next left click runs the button action again instead
-            // of re-opening a stale menu.
-            DispatchQueue.main.async {
-                item.menu = nil
-            }
+            self.present(menu, from: item)
         }
+    }
+
+    /// Shows the dropdown below the hosting status item. `menu.popUp` is used
+    /// instead of setting `item.menu` and synthesising `performClick`: the
+    /// latter is unreliable when the action came from another menu (the gear
+    /// menu), which is exactly how "Show Menu-bar Items…" opens this list.
+    private func present(_ menu: NSMenu, from item: NSStatusItem) {
+        guard let button = item.button else { return }
+        onMenuWillPresent?(item)
+        menu.popUp(
+            positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY + 4), in: button)
+        onMenuDidDismiss?(item)
     }
 
     // Looks exactly like the real overflow menu, but explains the permission
     // instead of leaving the user with "No items found".
     private func presentPermissionGuidedMenu(for item: NSStatusItem) {
         itemAwaitingPermission = item
-        item.menu = buildOverflowMenu(needsAccessibilityHelp: true)
-        onMenuWillPresent?(item)
-        item.button?.performClick(nil)
-        onMenuDidDismiss?(item)
-        DispatchQueue.main.async {
-            item.menu = nil
-        }
+        present(buildOverflowMenu(needsAccessibilityHelp: true), from: item)
     }
 
     // Re-open the live menu once the user comes back from System Settings with
@@ -571,10 +611,12 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
             overrides: MenuBarSectionOverrides.current)
         let hiddenExtras = snapshot.hidden
         let visibleExtras = snapshot.visible
+        let offBarExtras = snapshot.offBar
         AppLogger.info(
             "NotchOverflow: boundary \(Int(boundaryX)); perBundle \(hidesPerBundle); hidden "
                 + "\(hiddenExtras.map(\.displayName)); visible "
-                + "\(visibleExtras.map(\.displayName))")
+                + "\(visibleExtras.map(\.displayName)); offBar "
+                + "\(offBarExtras.map(\.displayName))")
         let unmeasured = snapshot.flat.filter { !$0.isDrawnOnBar }
         if !unmeasured.isEmpty {
             AppLogger.info(
@@ -618,7 +660,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         }
 
         // The reorderable rows, in display order; shared with the drag session
-        // so a ⌘-drag can map a drop position back onto these items.
+        // so a ⌘-drag can map a drop position back onto these items. Off-bar
+        // items are not reorderable; they only contribute their title to the
+        // shared row width.
         if hasSections {
             menuRows =
                 hiddenExtras.map { row(for: $0, hidden: true) }
@@ -628,10 +672,11 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                 row(for: info, hidden: index < hiddenExtras.count)
             }
         }
-        let rowWidth = Self.rowWidth(for: menuRows)
+        let offBarRows = offBarExtras.map { row(for: $0, hidden: false) }
+        let rowWidth = Self.rowWidth(for: menuRows + offBarRows)
 
         // Discoverability: rows support a gesture that nothing else advertises.
-        if !menuRows.isEmpty {
+        if !menuRows.isEmpty || !offBarRows.isEmpty {
             menu.addItem(makeHintItem())
         }
 
@@ -662,6 +707,22 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
                             rowIndex: hiddenExtras.count + index, width: rowWidth))
                 }
             }
+
+            // Off-bar section: the app is running but its status item is not on
+            // any menu bar. Neither Hidden nor Visible is true, and no eye can
+            // bring it back; the row says what to do instead.
+            if !offBarExtras.isEmpty {
+                if !hiddenExtras.isEmpty || !visibleExtras.isEmpty {
+                    menu.addItem(NSMenuItem.separator())
+                }
+                menu.addItem(
+                    makeSectionHeader(title: "Not on the menu bar (\(offBarExtras.count))"))
+                menu.addItem(NSMenuItem.separator())
+                for info in offBarExtras {
+                    menu.addItem(
+                        makeMenuItem(for: info, hidden: false, rowIndex: 0, width: rowWidth))
+                }
+            }
         } else {
             // One flat section: without a notch the notch sections would be
             // meaningless; every icon is listed, click to activate.
@@ -674,7 +735,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         }
 
         // Empty state
-        if hiddenExtras.isEmpty && visibleExtras.isEmpty {
+        if hiddenExtras.isEmpty && visibleExtras.isEmpty && offBarExtras.isEmpty {
             let emptyItem = NSMenuItem(
                 title: "No items found (check Accessibility permission)",
                 action: nil, keyEquivalent: "")
@@ -711,7 +772,7 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         for info: MenuBarExtraInfo, hidden: Bool = false, rowIndex: Int = 0, width: CGFloat = 240
     ) -> NSMenuItem {
         let item = NSMenuItem()
-        let title = info.displayName
+        let title = info.rowTitle
         // Kept for Accessibility even though the row view paints the visible
         // content: Assistive clients read the item's title. The drawn eye
         // marker is invisible to them, so hidden rows say so in words.
@@ -719,14 +780,28 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
 
         let row = OverflowRowView(rowIndex: rowIndex, info: info, hidden: hidden, width: width)
         // System items are always visible; dragging them between the sections
-        // would promise a hide the bar never does.
-        if !info.isSystemItem {
+        // would promise a hide the bar never does. Off-bar items have no slot
+        // to drag from, and their owner app has to re-add the status item first.
+        if !info.isSystemItem && info.isOnMenuBar {
             row.onCommandDrag = { [weak self] row in self?.beginRearrangeDrag(row) }
-        } else {
+            row.onToggleHidden = { [weak self] row in self?.toggleHidden(row) }
+        } else if info.isSystemItem {
             row.toolTip = "System items stay visible while the icons are hidden"
+        } else {
+            row.toolTip =
+                "This app is not publishing a menu-bar item. Click to open it and choose a "
+                + "menu-bar icon, or enable it in System Settings › Control Center › Menu Bar"
+        }
+        if !info.isOnMenuBar {
+            row.onActivate = { [weak self] info in self?.activateOwnerApp(info) }
+        } else {
+            row.onActivate = { [weak self] info in self?.activateRow(info) }
         }
         if !info.isDrawnOnBar {
             row.toolTip = "macOS is not drawing this icon on the bar right now"
+        } else if !info.isOnMenuBar {
+            row.toolTip =
+                "This app is not drawing its menu-bar icon right now; relaunch it to restore it"
         }
         row.onActivate = { [weak self] info in self?.activateRow(info) }
         item.view = row
@@ -739,13 +814,34 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
 
     private func row(for info: MenuBarExtraInfo, hidden: Bool) -> OverflowDragSession.Row {
         return OverflowDragSession.Row(
-            info: info, title: info.displayName, isHiddenRow: hidden)
+            info: info, title: info.rowTitle, isHiddenRow: hidden)
+    }
+
+    /// The eye button: pin the app to the other section. Pinning does not move
+    /// the icon; macOS 27 hides per bundle, and the engine re-applies the new
+    /// allow-list from the preference notification. The dropdown is rebuilt so
+    /// the row appears under the section it now belongs to.
+    private func toggleHidden(_ row: OverflowRowView) {
+        guard !row.info.isSystemItem,
+            let key = MenuBarArrangementStore.key(of: row.info)
+        else { return }
+        let makeHidden = !row.isHiddenRow
+        MenuBarSectionOverrides.set(key, hidden: makeHidden)
+        AppConfig.notifyPreferencesChanged()
+        AppLogger.info(
+            "NotchOverflow: pinned \(row.info.displayName) "
+                + (makeHidden ? "hidden" : "visible"))
+
+        guard let item = presentingItem else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.showOverflowMenu(near: item)
+        }
     }
 
     /// One width for every row view, from the widest title, so the menu sizes
     /// itself like a normal menu instead of one lumpy column.
     private static let rearrangementHint =
-        "⌘-drag between Hidden/Visible to choose what hides; system items stay visible"
+        "Click the eye to pin Hidden/Visible; ⌘-drag to rearrange; system items stay visible"
 
     private static func rowWidth(for rows: [OverflowDragSession.Row]) -> CGFloat {
         let widestRow =
@@ -784,6 +880,12 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
         }
     }
 
+    /// An off-bar item cannot be pressed (there is no status item). Bring its
+    /// owner to the front instead, where its own settings can restore the icon.
+    private func activateOwnerApp(_ info: MenuBarExtraInfo) {
+        NSRunningApplication(processIdentifier: info.pid)?.activate()
+    }
+
     /// Press the item's real menu-bar element through Accessibility.
     private func pressExtra(_ info: MenuBarExtraInfo) {
         let now = ProcessInfo.processInfo.systemUptime
@@ -811,8 +913,9 @@ class NotchOverflowController: NSObject, NSMenuDelegate {
     /// applied to the real bar by MenuBarItemMover.
     private func beginRearrangeDrag(_ row: OverflowRowView) {
         // System items stay visible; their rows have no drag handler, but a
-        // stale row from an earlier build must not start one either.
-        guard !row.info.isSystemItem else { return }
+        // stale row from an earlier build must not start one either. Off-bar
+        // items have no slot on the bar to drag from.
+        guard !row.info.isSystemItem, row.info.isOnMenuBar else { return }
         guard menuRows.count > 1,
             let menu = row.enclosingMenuItem?.menu,
             let menuWindow = row.window
