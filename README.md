@@ -24,8 +24,12 @@ click an entry to open it, or ⌘-drag entries to rearrange the bar.
 **⌘-drag the `|` separator** to choose which icons get hidden: everything left of
 the separator hides when collapsed. Right-click the arrow or the separator for the
 menu (Show Menu-bar Items, Expand Menu Bar, Auto Collapse toggle, Settings, Quit).
-With icon hiding on, the arrow hosts the icon list itself; the standalone chevron
-only appears when icon hiding is off.
+Double-click the arrow for the icon list.
+
+The arrow itself always stays on the bar: iMonitor puts it back if macOS's
+menu-bar management removes it (System Settings › Control Center, or ⌘-dragging
+it away), and another manager's hiding cannot take it away with the icons around
+it.
 
 **Expand on hover** (Settings, off by default) peeks at the hidden icons when the
 pointer *rests* on an empty part of the menu bar — on the arrow's hidden side,
@@ -41,15 +45,15 @@ panel is dismissed.
 
 Another manager using the same native restriction (OnlySwitch, or OneSwitch) is
 kept compatible: macOS intersects all active allow-lists, so iMonitor always
-allows those managers' own items. While such a manager is hiding icons, iMonitor
-also keeps a 1-point invisible anchor at the trailing end of the bar, putting
-itself on their visible side so both apps' icons stay reachable. The anchor is
-dropped while no manager is hiding icons, so it leaves no empty slot in the bar
-otherwise.
+allows those managers' own items. While such a manager is running, iMonitor also
+keeps a 1-point invisible anchor at the trailing end of the bar, putting itself
+on that manager's visible side. The anchor stays for as long as the manager runs
+— its divider moves with the icons around it, and its hiding can be switched on
+from its own menu at any time — so the arrow and stats icons stay on the bar
+either way. Once the manager quits, the anchor leaves no empty slot behind.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
-the arrow (or the standalone chevron shown when icon hiding is off) does not appear
-after enabling a feature, add it under
+the arrow does not appear after enabling a feature, add it under
 **System Settings › Control Center › Menu Bar**. The icon list needs the
 **Accessibility permission** to read other apps' icons (it prompts on first use).
 On macOS 27, hiding is per app and uses the system's own menu-bar visibility, so

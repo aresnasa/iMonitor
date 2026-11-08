@@ -121,6 +121,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             withTimeInterval: AppConfig.statusBarRefreshInterval, repeats: true
         ) { [weak self] _ in
             self?.updateStatusBar()
+            // The Hidden Bar arrow must stay on the bar: macOS's menu-bar
+            // management can remove it mid-session, and only the app can put it
+            // back. Cheap when it is still there (one boolean check).
+            self?.hiddenBarController?.ensureArrowVisible()
         }
 
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in

@@ -30,9 +30,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
 
     private var notchOverflowController = NotchOverflowController()
     // The invisible 1-point item that keeps this bundle on the trailing side of
-    // another manager's divider. Created only while that manager is hiding icons
-    // (see syncCompatibilityAnchor); nil on macOS versions without the native
-    // restriction, and while no other manager is hiding any.
+    // another manager's divider. Kept for as long as such a manager runs (see
+    // syncCompatibilityAnchor); nil on macOS versions without the native
+    // restriction, and while no other manager is running.
     private var compatibilityAnchorItem: NSStatusItem?
     private lazy var menuBarEngine: MenuBarEngine = MenuBarEngineFactory.make(items: self)
     private lazy var systemItemClickForwarder = SystemItemClickForwarder(
@@ -71,6 +71,9 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private var isExternalMenuTracking = false
     private var collapseReassertWorkItem: DispatchWorkItem?
     private var menuBarClickMonitor: Any?
+    // Set once the feature is torn down: delayed visibility checks must not put
+    // the arrow back on the bar after the user turned the feature off.
+    private var isTearingDown = false
 
     // Set while a menu that this feature spawned is on screen, so the
     // auto-collapse timer can defer instead of closing the menu under the user.
@@ -128,6 +131,18 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             self, selector: #selector(handleExternalMenuTrackingEnded),
             name: Self.menuTrackingEndedNotification, object: nil,
             suspensionBehavior: .deliverImmediately)
+        // A compatible manager that launches later must find iMonitor's
+        // compatibility anchor already on the bar, and one that quits frees the
+        // slot; watch their lifecycle rather than waiting for the next launch.
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        for name in [
+            NSWorkspace.didLaunchApplicationNotification,
+            NSWorkspace.didTerminateApplicationNotification,
+        ] {
+            workspaceCenter.addObserver(
+                self, selector: #selector(handleWorkspaceApplicationChange(_:)),
+                name: name, object: nil)
+        }
 
         // Decide on the compatibility anchor before the first collapse, while
         // the bar is still unrestricted: another manager can only hide items
@@ -162,6 +177,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     deinit {
         NotificationCenter.default.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         hoverDwellTimer?.invalidate()
         if let monitor = hoverMonitor {
             NSEvent.removeMonitor(monitor)
@@ -174,6 +190,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     /// Remove every status item this feature owns. Used when the user turns the
     /// feature off (the settings pane restarts the app right after).
     func tearDown() {
+        isTearingDown = true
         timer?.invalidate()
         timer = nil
         cancelHoverDwell()
@@ -230,30 +247,51 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         _ = menuBarEngine
     }
 
+    /// The arrow is the feature's only way in and out, so it must never leave
+    /// the menu bar. Launch alone is not enough: macOS 26's menu-bar management
+    /// can take it off during a session (Control Center, ⌘-drag), and a removed
+    /// status item stays gone until its app re-asserts it. The refresh tick and
+    /// every point that rebuilds the bar call this, so a removal lasts at most
+    /// one tick instead of until the next relaunch.
+    func ensureArrowVisible() {
+        guard !isTearingDown, !toggleItem.isVisible else { return }
+        toggleItem.isVisible = true
+        AppLogger.info("HiddenBar: the arrow was removed from the menu bar; restoring it")
+    }
+
     // MARK: - Compatibility anchor
 
-    // The anchor earns its blank slot only while another manager is actually
-    // hiding icons: macOS intersects the allow-lists, and iMonitor's own icons
-    // would vanish with that manager's section. With no such manager there is
-    // nothing to protect, and the slot is only spacing in the bar.
+    // The anchor earns its blank slot while another manager that hides icons
+    // through the same native allow-list is running. Its divider moves with the
+    // icons the user drags around it, and its hiding switch can be flipped from
+    // its own menu at any moment, so deciding from one reading of the bar would
+    // leave iMonitor unprotected exactly when that matters. Keeping the anchor
+    // parked on the trailing side the whole time is what keeps the arrow on the
+    // bar under that manager's hiding.
     private func syncCompatibilityAnchor() {
         // Only the native engine needs it: there another manager's divider hides
         // items through the same allow-list the engine uses.
         guard menuBarEngine.blocksSystemItemClicks,
-            MenuBarManagerCompatibility.isAnotherManagerHidingIcons()
+            MenuBarManagerCompatibility.isAnotherManagerRunning()
         else {
             removeCompatibilityAnchor()
             return
         }
-        guard compatibilityAnchorItem == nil else { return }
+        if compatibilityAnchorItem != nil {
+            // It may have been created while another restriction was up and
+            // never drawn, so it could not be moved; every relayout is another
+            // chance to park it on the trailing side.
+            placeCompatibilityAnchorAtTrailingEnd()
+            return
+        }
         // A status item created while the bar is restricted can end up in the AX
         // tree without the bar ever drawing it, and then it cannot be placed. The
-        // launch check runs before the first collapse; a later re-check only keeps
-        // or drops an existing anchor, and leaves adding one to the next launch.
+        // launch check runs before the first collapse; if the bar is hidden
+        // already, the anchor is added once it is expanded again.
         guard menuBarEngine.state == .expanded else {
             AppLogger.info(
                 "HiddenBar: the visibility anchor is needed, but the bar is hidden; "
-                    + "adding it at the next launch")
+                    + "adding it when the bar is expanded again")
             return
         }
         let item = NSStatusBar.system.statusItem(withLength: 1)
@@ -266,7 +304,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         item.button?.image = image
         item.button?.isEnabled = false
         compatibilityAnchorItem = item
-        AppLogger.info("HiddenBar: adding the visibility anchor for another menu-bar manager")
+        AppLogger.info(
+            "HiddenBar: adding the visibility anchor while another menu-bar manager "
+                + "runs (hiding now: "
+                + "\(MenuBarManagerCompatibility.isAnotherManagerHidingIcons()))")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
             self?.placeCompatibilityAnchorAtTrailingEnd()
         }
@@ -277,7 +318,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         NSStatusBar.system.removeStatusItem(item)
         compatibilityAnchorItem = nil
         AppLogger.info(
-            "HiddenBar: removing the visibility anchor; no other manager is hiding icons")
+            "HiddenBar: removing the visibility anchor; no other manager is running")
     }
 
     // The anchor is only useful to the right of every other manager's divider.
@@ -745,6 +786,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     private func didCollapseMenuBar() {
         wantsCollapsed = true
         isExpandedByHover = false
+        ensureArrowVisible()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.collapseImage
             button.toolTip = Self.collapsedArrowTooltip
@@ -761,6 +803,10 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // progress goes through by itself now.
         systemItemClickForwarder.cancel()
         menuBarEngine.expand()
+        // The bar is open again: put the arrow back if macOS removed it, and
+        // add the compatibility anchor if it had to wait for an unrestricted bar.
+        ensureArrowVisible()
+        syncCompatibilityAnchor()
         if let button = toggleItem.button {
             button.image = HiddenBarAssets.expandImage
             button.toolTip = Self.expandedArrowTooltip
@@ -771,6 +817,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // The app came back to the foreground (usually straight from System Settings
     // › Accessibility). Re-attempt the collapse the user had asked for.
     @objc private func handleApplicationDidBecomeActive() {
+        ensureArrowVisible()
         syncCompatibilityAnchor()
         guard isWaitingForAuthorization, AccessibilityPermission.isGranted else { return }
         isWaitingForAuthorization = false
@@ -943,6 +990,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // The Settings list's manual Hidden/Visible pins live in preferences;
         // re-apply them while collapsed so a toggle takes effect right away.
         menuBarEngine.applySectionOverrides()
+        ensureArrowVisible()
         autoCollapseIfNeeded()
     }
 
@@ -953,9 +1001,24 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // make the engine misread the bar as expanded.
         let wasCollapsed = wantsCollapsed
         menuBarEngine.invalidateLayout()
+        ensureArrowVisible()
         if wasCollapsed {
             collapseIfPossible()
         }
+        syncCompatibilityAnchor()
+    }
+
+    // Another compatible manager launching or quitting changes whether the
+    // compatibility anchor is needed. Synced right away so a manager that
+    // launches armed finds iMonitor already on the trailing side, and one that
+    // quits frees the slot.
+    @objc private func handleWorkspaceApplicationChange(_ notification: Notification) {
+        guard
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                as? NSRunningApplication,
+            let bundleIdentifier = app.bundleIdentifier,
+            MenuBarManagerCompatibility.bundleIdentifiers.contains(bundleIdentifier)
+        else { return }
         syncCompatibilityAnchor()
     }
 }
