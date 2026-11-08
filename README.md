@@ -105,9 +105,11 @@ The `--release` flag runs the full release cycle: build universal binary + DMG, 
 
 **Prerequisites:** `gh` CLI authenticated (`gh auth login`) and git push access.
 
-## Snapshot
+## Screenshot
 
-<img src="./snapshot.png" width="600" />
+<img src="./snapshot.png" width="600" alt="iMonitor menu-bar stats and per-process breakdown" />
+
+Menu-bar CPU, memory, GPU and network stats with the per-process breakdown below.
 
 ## Acknowledgments
 
