@@ -28,7 +28,12 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     let toggleItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let separatorItem = NSStatusBar.system.statusItem(withLength: 1)
 
-    private let notchOverflowController = NotchOverflowController()
+    private var notchOverflowController = NotchOverflowController()
+    // The invisible 1-point item that keeps this bundle on the trailing side of
+    // another manager's divider. Created only while that manager is hiding icons
+    // (see syncCompatibilityAnchor); nil on macOS versions without the native
+    // restriction, and while no other manager is hiding any.
+    private var compatibilityAnchorItem: NSStatusItem?
     private lazy var menuBarEngine: MenuBarEngine = MenuBarEngineFactory.make(items: self)
     private lazy var systemItemClickForwarder = SystemItemClickForwarder(
         isActive: { [weak self] in self?.forwardsSystemItemClicks ?? false },
@@ -124,6 +129,14 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
             name: Self.menuTrackingEndedNotification, object: nil,
             suspensionBehavior: .deliverImmediately)
 
+        // Decide on the compatibility anchor before the first collapse, while
+        // the bar is still unrestricted: another manager can only hide items
+        // that were on its hidden side when it built its allow-list. Deferred so
+        // the status items have been laid out.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.syncCompatibilityAnchor()
+        }
+
         // Collapse shortly after launch, mirroring Hidden Bar: the hidden zone is
         // hidden until the user asks for it. Deferred so the bar has settled: the
         // native engine reads the bar's arrangement on the first collapse.
@@ -176,6 +189,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         menuBarEngine.expand()
         NSStatusBar.system.removeStatusItem(toggleItem)
         NSStatusBar.system.removeStatusItem(separatorItem)
+        removeCompatibilityAnchor()
     }
 
     // MARK: - Setup
@@ -214,6 +228,111 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         // Create the engine now so one that does not use the separator (macOS 27
         // native hiding) takes it back out before it is ever drawn.
         _ = menuBarEngine
+    }
+
+    // MARK: - Compatibility anchor
+
+    // The anchor earns its blank slot only while another manager is actually
+    // hiding icons: macOS intersects the allow-lists, and iMonitor's own icons
+    // would vanish with that manager's section. With no such manager there is
+    // nothing to protect, and the slot is only spacing in the bar.
+    private func syncCompatibilityAnchor() {
+        // Only the native engine needs it: there another manager's divider hides
+        // items through the same allow-list the engine uses.
+        guard menuBarEngine.blocksSystemItemClicks,
+            MenuBarManagerCompatibility.isAnotherManagerHidingIcons()
+        else {
+            removeCompatibilityAnchor()
+            return
+        }
+        guard compatibilityAnchorItem == nil else { return }
+        // A status item created while the bar is restricted can end up in the AX
+        // tree without the bar ever drawing it, and then it cannot be placed. The
+        // launch check runs before the first collapse; a later re-check only keeps
+        // or drops an existing anchor, and leaves adding one to the next launch.
+        guard menuBarEngine.state == .expanded else {
+            AppLogger.info(
+                "HiddenBar: the visibility anchor is needed, but the bar is hidden; "
+                    + "adding it at the next launch")
+            return
+        }
+        let item = NSStatusBar.system.statusItem(withLength: 1)
+        // A stable identity keeps the slot the system assigns. A fresh status
+        // item can land anywhere; the allow-list only sees the anchor on the
+        // trailing side of the divider, so it is moved there next.
+        item.autosaveName = "imonitor_visibility_anchor"
+        let image = NSImage(size: NSSize(width: 1, height: 1))
+        image.isTemplate = true
+        item.button?.image = image
+        item.button?.isEnabled = false
+        compatibilityAnchorItem = item
+        AppLogger.info("HiddenBar: adding the visibility anchor for another menu-bar manager")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.placeCompatibilityAnchorAtTrailingEnd()
+        }
+    }
+
+    private func removeCompatibilityAnchor() {
+        guard let item = compatibilityAnchorItem else { return }
+        NSStatusBar.system.removeStatusItem(item)
+        compatibilityAnchorItem = nil
+        AppLogger.info(
+            "HiddenBar: removing the visibility anchor; no other manager is hiding icons")
+    }
+
+    // The anchor is only useful to the right of every other manager's divider.
+    // macOS inserts a new status item wherever it likes, so move it once to the
+    // clock's trailing slot; the system remembers that slot by autosaveName.
+    // The drag is the same ⌘-drag the user would do, and the item draws nothing.
+    private func placeCompatibilityAnchorAtTrailingEnd() {
+        guard let anchor = compatibilityAnchorItem, anchor.isVisible,
+            let window = anchor.button?.window,
+            let clock = SystemItemClickForwarder.clockFrame(),
+            menuBarEngine.blocksSystemItemClicks
+        else { return }
+        let primaryTop = NSScreen.screens.first?.frame.maxY ?? 0
+        let anchorFrame = window.frame
+        let from = CGPoint(x: anchorFrame.midX, y: primaryTop - anchorFrame.midY)
+        // Already at the trailing end (the slot next to the clock): leave it.
+        guard from.x <= clock.minX - 100 else { return }
+        // Only drag when the hit test at that point is the anchor itself. A
+        // restriction of another manager may be hiding it, and the point may
+        // then belong to a neighbouring icon that must not be moved. The anchor
+        // is the only 3-point item this app owns.
+        let systemWide = AXUIElementCreateSystemWide()
+        var hit: AXUIElement?
+        guard
+            AXUIElementCopyElementAtPosition(
+                systemWide, Float(from.x), Float(from.y), &hit) == .success,
+            let hit
+        else { return }
+        var hitPID: pid_t = 0
+        AXUIElementGetPid(hit, &hitPID)
+        guard hitPID == getpid(),
+            let hitFrame = AccessibilityMenuBarInventory.frame(of: hit),
+            hitFrame.width <= 5, abs(hitFrame.midX - from.x) < 3
+        else { return }
+        let to = CGPoint(x: clock.midX, y: from.y)
+        AppLogger.info(
+            "HiddenBar: moving the visibility anchor from x=\(Int(from.x)) to the trailing end")
+
+        var didRestoreCursor = false
+        let restoreCursor = {
+            guard !didRestoreCursor else { return }
+            didRestoreCursor = true
+            CGDisplayShowCursor(CGMainDisplayID())
+        }
+        CGDisplayHideCursor(CGMainDisplayID())
+        MenuBarItemMover.move(from: from, to: to) { [weak self] in
+            restoreCursor()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                let landed = self?.compatibilityAnchorItem?.button?.window?.frame.midX
+                AppLogger.info(
+                    "HiddenBar: visibility anchor is now at x=\(landed.map { Int($0) } ?? -1)")
+            }
+        }
+        // Never leave the pointer hidden if the drag callback is lost.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { restoreCursor() }
     }
 
     // MARK: - Pointer monitoring
@@ -414,10 +533,15 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         return wantsCollapsed && isCollapsed && menuBarEngine.blocksSystemItemClicks
     }
 
-    /// Lifts the hiding around one press on the clock: the hidden icons pop out
-    /// for a moment and hide again, while the panel the press opened stays up.
+    // Lifts the hiding around one press on the clock: the hidden icons pop out
+    // and hide again once the panel the press opened is gone. They cannot hide
+    // while it is up: macOS 27.2 dismisses the panel when the restriction is
+    // re-applied under it (27.0.1 kept it).
     private func liftHidingForSystemItem(_ press: @escaping () -> Void) -> Bool {
-        return menuBarEngine.liftHidingBriefly(for: press) { [weak self] result in
+        return menuBarEngine.liftHidingBriefly(
+            for: press,
+            keepLifted: { [weak self] in self?.shouldKeepHidingLifted ?? false }
+        ) { [weak self] result in
             switch result {
             case .collapsed:
                 self?.didCollapseMenuBar()
@@ -425,6 +549,19 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
                 self?.didFailToCollapseMenuBar()
             }
         }
+    }
+
+    // The clock's panel, or a menu the click opened, is on screen: re-applying
+    // the hiding now would dismiss it on macOS 27.2. An unreadable panel state
+    // is treated as open, so a slow Accessibility query cannot close it either.
+    private var shouldKeepHidingLifted: Bool {
+        switch systemItemClickForwarder.panelIsOnScreen() {
+        case true?, nil:
+            return true
+        case false?:
+            break
+        }
+        return isExternalMenuTracking || Self.isMenuPresented || Self.isPopUpMenuOnScreen
     }
 
     // MARK: - State
@@ -634,6 +771,7 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
     // The app came back to the foreground (usually straight from System Settings
     // › Accessibility). Re-attempt the collapse the user had asked for.
     @objc private func handleApplicationDidBecomeActive() {
+        syncCompatibilityAnchor()
         guard isWaitingForAuthorization, AccessibilityPermission.isGranted else { return }
         isWaitingForAuthorization = false
         collapseIfPossible()
@@ -818,5 +956,6 @@ class HiddenBarController: NSObject, HiddenMenuItemProvider {
         if wasCollapsed {
             collapseIfPossible()
         }
+        syncCompatibilityAnchor()
     }
 }

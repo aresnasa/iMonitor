@@ -14,6 +14,7 @@
 		0CDE3DA617D30DB97DAE3C8C /* ProcessGPUSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5002ACAE5BD6353E7CFA2D4B /* ProcessGPUSampler.swift */; };
 		1632E3241F51BF95B3DD7BB2 /* PermissionOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4278522D2BDDD523CFAC62F9 /* PermissionOnboarding.swift */; };
 		17CFD01612513DE057781C5D /* ExpandCollapseAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */; };
+		1DBBBDEB950EEF3BF5E11B64 /* MenuBarManagerCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF35BAD559567FD9102968B8 /* MenuBarManagerCompatibility.swift */; };
 		27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E532228253D04BA91E966 /* MenuItem.swift */; };
 		2E543723371D4B393F4B5748 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC384FC1089FC41B02040979 /* UpdateManager.swift */; };
 		3409204EA75E445FC012EBBE /* StatusBarIconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */; };
@@ -99,6 +100,7 @@
 		B51DB1D22889E73A96E3604E /* AccessibilityPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
 		B892AD57B6F0C2E9D9B2229E /* StatusBarIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarIconView.swift; sourceTree = "<group>"; };
 		BB059BE9CB31C6EA3E6CFFAE /* iMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BF35BAD559567FD9102968B8 /* MenuBarManagerCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarManagerCompatibility.swift; sourceTree = "<group>"; };
 		C35D9B493ACB68631336B3EA /* ExpandCollapseAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpandCollapseAction.swift; sourceTree = "<group>"; };
 		C6000C2555780235B42C5B3B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D73460F690D47754D7012AC3 /* HiddenBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HiddenBarController.swift; sourceTree = "<group>"; };
@@ -212,6 +214,7 @@
 				F906456B30F909A646E3B89D /* MenuBarHoverZone.swift */,
 				67D0C34192E92C20C96B72C7 /* MenuBarItemMover.swift */,
 				6AF0DE13FC428F85783AC331 /* MenuBarLayout.swift */,
+				BF35BAD559567FD9102968B8 /* MenuBarManagerCompatibility.swift */,
 				4C21D06FE474A29CF955CA50 /* NativeVisibilityBridge.swift */,
 				83FA3B8B5C5EB19EA3DCAC68 /* NativeVisibilityEngine.swift */,
 				7F06DEA764E3B609D24E6B71 /* NotchOverflow.swift */,
@@ -334,6 +337,7 @@
 				80CF021863AEC26B1ABA36A9 /* MenuBarHoverZone.swift in Sources */,
 				FC9FC6F180EE760A7D17045F /* MenuBarItemMover.swift in Sources */,
 				C609F667577578B32E1DA8E3 /* MenuBarLayout.swift in Sources */,
+				1DBBBDEB950EEF3BF5E11B64 /* MenuBarManagerCompatibility.swift in Sources */,
 				27EE9A063832588FD8528A98 /* MenuItem.swift in Sources */,
 				BC98B7E5EC8882B84D52F8FA /* NativeVisibilityBridge.swift in Sources */,
 				C87A7FB158CBBE6AFA578D90 /* NativeVisibilityEngine.swift in Sources */,
@@ -390,7 +394,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 0.5.18;
+				MARKETING_VERSION = 0.5.19;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-fobjc-arc",
@@ -549,7 +553,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				MARKETING_VERSION = 0.5.18;
+				MARKETING_VERSION = 0.5.19;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-fobjc-arc",

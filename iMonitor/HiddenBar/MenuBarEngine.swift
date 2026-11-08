@@ -48,13 +48,17 @@ protocol MenuBarEngine: AnyObject {
     var blocksSystemItemClicks: Bool { get }
 
     // Lifts the hiding for a moment - the hidden icons pop out - runs `press`
-    // once the clock responds again, then puts the hiding back. The state
-    // stays .collapsed throughout, since the hiding the user asked for still
-    // stands. Returns false, running nothing, when there is no hiding to
-    // lift. The completion reports the re-applied hiding on the main queue;
-    // it is not called when an expand() overtook the lift.
+    // once the clock responds again, then puts the hiding back. While
+    // `keepLifted` returns true - the panel the press opened is on screen, or
+    // a menu is tracking - the hiding stays lifted: macOS 27.2 dismisses the
+    // clock's panel when a restriction is re-applied under it. The state stays
+    // .collapsed throughout, since the hiding the user asked for still stands.
+    // Returns false, running nothing, when there is no hiding to lift. The
+    // completion reports the re-applied hiding on the main queue; it is not
+    // called when an expand() overtook the lift.
     func liftHidingBriefly(
-        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+        for press: @escaping () -> Void, keepLifted: @escaping () -> Bool,
+        completion: @escaping (CollapseResult) -> Void
     ) -> Bool
 }
 
@@ -66,7 +70,8 @@ extension MenuBarEngine {
     func applySectionOverrides() {}
 
     func liftHidingBriefly(
-        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+        for press: @escaping () -> Void, keepLifted: @escaping () -> Bool,
+        completion: @escaping (CollapseResult) -> Void
     ) -> Bool {
         return false
     }

@@ -12,13 +12,16 @@ import Cocoa
 // Control Center and the rest of Control Center's items keep working: its
 // bundle is allowed.) This passes a click on the clock through. On the click's
 // mouse-up the hiding is lifted for a moment - the hidden icons pop out to the
-// left - the clock is pressed through Accessibility, and the hiding goes
-// straight back on (see MenuBarEngine.liftHidingBriefly). The panel stays up:
-// Notification Center, which owns it, is in the native engine's allow-list.
+// left - a click is replayed on the clock, and the hiding goes back on once the
+// panel it opened is gone (see MenuBarEngine.liftHidingBriefly). The panel
+// stays up while it is used: Notification Center, which owns it, is in the
+// native engine's allow-list, but a restriction re-applied under the panel
+// would dismiss it.
 //
-// The clock is pressed with AXPress rather than by replaying the click: a
-// replayed click is a real click and lands on whatever sits under the pointer
-// once it is posted, while AXPress reaches exactly the item clicked.
+// The replay targets the clock's own frame rather than the pointer: the clock
+// is trailing-anchored, so its slot stays put while the hidden icons pop out.
+// The synthetic events are flagged, so the global monitor does not take them
+// for a second user click.
 //
 // Measured on macOS 27.0.1:
 // - A global monitor sees the mouse-down/up on the inert clock, and
@@ -30,9 +33,19 @@ import Cocoa
 //   starts (the panel's content is gone about 0.36 s later).
 // - Notification Center shows banners in the very window the panel uses, so
 //   the panel is told apart by its content, not by its window.
+//
+// Measured on macOS 27.2:
+// - AXPress on the clock still reports success but opens nothing, even with the
+//   bar unrestricted; a replayed click does open the panel. The press is
+//   therefore a click now.
+// - Re-applying the hiding under the open panel dismisses it (27.0.1 kept it),
+//   so the engine holds the hiding lifted until the panel is gone (see
+//   MenuBarEngine.liftHidingBriefly's keepLifted).
+// - Notification Center's panel no longer appears in CGWindowList - the old
+//   cheap check reported "no window" with the panel plainly open - so the panel
+//   is looked for in Accessibility directly.
 final class SystemItemClickForwarder {
     private struct Item {
-        let element: AXUIElement
         // The item's slot, as tall as the bar: a click flung against the top
         // edge of the screen still counts.
         let frame: CGRect
@@ -60,14 +73,20 @@ final class SystemItemClickForwarder {
     // Accessibility runs on the main thread here, inside a click: bounded so a
     // busy system process cannot stall the app. A full panel query takes 20-60 ms.
     private static let messagingTimeout: Float = 0.1
-    private static let pressTimeout: Float = 0.25
     private static let queryBudget: TimeInterval = 0.15
     // When the log checks what the press opened.
     private static let verifyDelay: TimeInterval = 0.5
+    // A replayed click is a press/release pair; the flag that keeps iMonitor
+    // from handling its own events has to outlive both.
+    private static let replayClickDownTime: TimeInterval = 0.06
+    private static let replayClickLinger: TimeInterval = 0.3
 
     private let isActive: () -> Bool
     private let liftHiding: (@escaping () -> Void) -> Bool
     private var pending: PendingClick?
+    // Set while the press below posts its own click, so the global monitor does
+    // not take it for another user click on the clock.
+    private var isReplayingClick = false
 
     /// - Parameters:
     ///   - isActive: whether the clock is inert right now, i.e. the user wants
@@ -84,6 +103,7 @@ final class SystemItemClickForwarder {
 
     /// A left mouse-down in the menu bar, from a global monitor.
     func mouseDown(_ event: NSEvent) {
+        guard !isReplayingClick else { return }
         pending = nil
         // ⌘-drag rearranges and ⌃-click asks for a context menu: neither is
         // the clock's plain press.
@@ -96,7 +116,7 @@ final class SystemItemClickForwarder {
 
     /// A left mouse-up anywhere, from a global monitor.
     func mouseUp(_ event: NSEvent) {
-        guard let click = pending else { return }
+        guard !isReplayingClick, let click = pending else { return }
         pending = nil
         let item = click.item
         // Released off the clock: a drag, not a click.
@@ -121,8 +141,8 @@ final class SystemItemClickForwarder {
             AppLogger.info("HiddenBar: clock panel opened by the click itself; not pressing it")
             return
         }
-        let started = liftHiding {
-            Self.press(item)
+        let started = liftHiding { [weak self] in
+            self?.press(item)
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.verifyDelay) {
                 AppLogger.info(
                     "HiddenBar: clock panel \(Self.describe(Self.isPanelOpen())) "
@@ -141,20 +161,55 @@ final class SystemItemClickForwarder {
         pending = nil
     }
 
+    /// Whether the calendar/widgets panel is on screen; nil when Accessibility
+    /// cannot tell. The hiding engine holds a click-through lift while this is
+    /// true (and while a menu is tracking), because macOS 27.2 dismisses the
+    /// panel when the restriction is re-applied under it.
+    func panelIsOpen() -> Bool? {
+        return Self.isPanelOpen()
+    }
+
+    /// The cheap half of `panelIsOpen` for the engine's poll: any panel-like
+    /// Notification Center window counts. A banner looks the same here, which
+    /// only keeps the hiding lifted a little longer; the click decisions still
+    /// use the content check above.
+    func panelIsOnScreen() -> Bool? {
+        guard let pid = Self.processIdentifier(of: Self.notificationCenter) else { return false }
+        guard let dialogs = Self.systemDialogs(of: pid) else { return nil }
+        return !dialogs.isEmpty
+    }
+
     // MARK: - The clock
 
-    // AXPress on the clock, looked up again if its element went stale since the
-    // mouse-down. Not retried otherwise: the press toggles the panel, and a
-    // second one would close what a slow first one opens.
-    private static func press(_ item: Item) {
-        AXUIElementSetMessagingTimeout(item.element, pressTimeout)
-        var result = AXUIElementPerformAction(item.element, kAXPressAction as CFString)
-        if result == .invalidUIElement, let fresh = clockItem() {
-            AXUIElementSetMessagingTimeout(fresh.element, pressTimeout)
-            result = AXUIElementPerformAction(fresh.element, kAXPressAction as CFString)
-        }
-        if result != .success {
-            AppLogger.warn("HiddenBar: pressing the clock failed (AXError \(result.rawValue))")
+    /// The clock's slot in Accessibility (top-left origin) coordinates. Used
+    /// to park the invisible visibility anchor at the trailing end.
+    static func clockFrame() -> CGRect? {
+        return clockItem()?.frame
+    }
+
+    // Replays a click on the clock's own slot. AXPress used to do this job, but
+    // on macOS 27.2 it returns success and opens nothing (measured on the clock,
+    // with the bar unrestricted); a real click still works. The point is the
+    // item's frame, not the pointer: the clock is trailing-anchored, so its slot
+    // stays put while the hidden icons pop out to the left. The generated events
+    // reach the global monitor too, hence isReplayingClick.
+    private func press(_ item: Item) {
+        let point = CGPoint(x: item.frame.midX, y: item.frame.midY)
+        let source = CGEventSource(stateID: .hidSystemState)
+        isReplayingClick = true
+        CGEvent(
+            mouseEventSource: source, mouseType: .leftMouseDown,
+            mouseCursorPosition: point, mouseButton: .left
+        )?.post(tap: .cghidEventTap)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.replayClickDownTime) {
+            CGEvent(
+                mouseEventSource: source, mouseType: .leftMouseUp,
+                mouseCursorPosition: point, mouseButton: .left
+            )?.post(tap: .cghidEventTap)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.replayClickLinger) {
+                [weak self] in
+                self?.isReplayingClick = false
+            }
         }
     }
 
@@ -171,7 +226,7 @@ final class SystemItemClickForwarder {
                 let frame = slotFrame.union(
                     AccessibilityMenuBarInventory.frame(of: element) ?? .null)
                 guard !frame.isNull else { return nil }
-                return Item(element: element, frame: frame)
+                return Item(frame: frame)
             }
         }
         return nil
@@ -188,10 +243,11 @@ final class SystemItemClickForwarder {
     // MARK: - Whether the panel is open
 
     // Whether Notification Center shows the calendar/widgets panel; nil when
-    // that cannot be told.
+    // that cannot be told. Asked of Accessibility alone: macOS 27.2 stopped
+    // listing Notification Center's panel in CGWindowList, so the old cheap
+    // "has a raised window" gate answered false with the panel wide open.
     private static func isPanelOpen() -> Bool? {
-        guard let pid = processIdentifier(of: notificationCenter), hasRaisedWindow(pid: pid)
-        else { return false }
+        guard let pid = processIdentifier(of: notificationCenter) else { return false }
         let deadline = Date().addingTimeInterval(queryBudget)
         guard let dialogs = systemDialogs(of: pid) else { return nil }
         for dialog in dialogs {
@@ -207,26 +263,6 @@ final class SystemItemClickForwarder {
             if isPanel { return true }
         }
         return false
-    }
-
-    // The cheap first check: with no window of its own above the desktop
-    // (the bar's levels aside), the process shows neither panel nor banner.
-    private static func hasRaisedWindow(pid: pid_t) -> Bool {
-        let barLevels: Set<Int> = [
-            Int(CGWindowLevelForKey(.mainMenuWindow)), Int(CGWindowLevelForKey(.statusWindow)),
-        ]
-        guard
-            let windows = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
-                as? [[String: Any]]
-        else { return true }
-        return windows.contains { window in
-            guard (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid
-            else { return false }
-            let layer = (window[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
-            let alpha = (window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
-            return layer > 0 && !barLevels.contains(layer) && alpha > 0
-        }
     }
 
     private static func describe(_ state: Bool?) -> String {

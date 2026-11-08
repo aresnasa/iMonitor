@@ -6,6 +6,7 @@ A macOS menu bar system monitor that displays CPU, Memory, GPU utilization and n
 
 - **System Metrics** — Real-time CPU, Memory, and GPU utilization with animated bar charts in the menu bar
 - **Network Monitoring** — Upload/download speed with per-process breakdown
+- **Adjustable Menu Bar Width** — The CPU/memory/network slot has a configurable fixed width (Settings › Menu Bar Icon), so it can sit tight against the next icon without shifting as speeds change
 - **Per-Process Details** — CPU%, memory and GPU% for each process, sortable by network, CPU, memory or GPU
 - **Hide Menu Bar Icons** — An arrow and separator that tuck icons you choose out of sight (ported from Hidden Bar), with auto-collapse and expand-on-hover
 - **Hidden Icons Dropdown** — Double-click the arrow (or the iMonitor icon) to list every menu-bar icon in one dropdown — fully hidden ones and icons squeezed behind the notch included — click to open, ⌘-drag to rearrange, without expanding the bar
@@ -35,8 +36,16 @@ the bar. The arrow itself never expands on hover, only on a click.
 On macOS 27 the system's own hiding mode keeps the clock visible but
 unresponsive while the icons are hidden (Wi-Fi and Control Center keep working).
 iMonitor passes a click on the clock through: the hidden icons pop out for a
-moment, the calendar and widgets panel opens, and the icons hide again while the
-panel stays open.
+moment, the calendar and widgets panel opens, and the icons hide again once the
+panel is dismissed.
+
+Another manager using the same native restriction (OnlySwitch, or OneSwitch) is
+kept compatible: macOS intersects all active allow-lists, so iMonitor always
+allows those managers' own items. While such a manager is hiding icons, iMonitor
+also keeps a 1-point invisible anchor at the trailing end of the bar, putting
+itself on their visible side so both apps' icons stay reachable. The anchor is
+dropped while no manager is hiding icons, so it leaves no empty slot in the bar
+otherwise.
 
 On **macOS 26 and later**, macOS manages menu-bar items through Control Center: if
 the arrow (or the standalone chevron shown when icon hiding is off) does not appear

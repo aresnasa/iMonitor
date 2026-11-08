@@ -10,6 +10,18 @@ enum AppConfig {
     @UserDefaultsWrapper(key: "statusBarRefreshInterval", default: 2.0)
     static var statusBarRefreshInterval: Double
 
+    /// Width in points of the stats slot in the menu bar. The drawn content
+    /// (three bars + network text) is narrower, so a value wider than the
+    /// content shows up as empty space before the next icon. Applied live, no
+    /// restart needed.
+    @UserDefaultsWrapper(key: "statusBarWidth", default: 56.0)
+    static var statusBarWidth: Double
+
+    /// Range the Settings stepper offers; the widest network text ("↑999M")
+    /// plus the bars no longer fit below the minimum.
+    static let minimumStatusBarWidth: Double = 52
+    static let maximumStatusBarWidth: Double = 120
+
     /// Left-to-right order of the resource columns in the process list
     /// (see ProcessColumn). Written by the Settings row order controls;
     /// unknown values are ignored and missing ones appended, so the list

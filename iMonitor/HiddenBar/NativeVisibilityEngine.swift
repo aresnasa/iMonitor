@@ -43,7 +43,12 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // above cannot keep it. Hiding it removes the only way to switch input
     // methods from the bar.
     static var alwaysVisibleBundles: [String] {
-        return InputSourceVisibility.bundles.sorted()
+        // Other menu-bar managers must keep their own control items. They hide
+        // icons with the same native restriction, and macOS intersects the
+        // allow-lists, so a manager whose item falls on our hidden side would
+        // vanish - taking away the only way to bring its icons back.
+        return (InputSourceVisibility.bundles + MenuBarManagerCompatibility.bundleIdentifiers)
+            .sorted()
     }
 
     // Native hiding works per bundle; the popup mirrors that split.
@@ -73,14 +78,20 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private var isLifted = false
     private var liftID = 0
 
-    // Timings of a brief lift, measured on macOS 27.0.1. AXPress on the clock
-    // opened its panel 0.01 s after the release and did nothing at 0 s: the
-    // release takes a moment to reach the bar (5x margin here).
+    // Timings of a brief lift, measured on macOS 27.0.1 and re-checked on 27.2.
+    // Pressing the clock does nothing at 0 s after the release and works once
+    // the release reaches the bar; 0.05 s is a 5x margin.
     private static let liftSettleDelay: TimeInterval = 0.05
-    // The panel the press opens survives re-applying the restriction anywhere
-    // from right after AXPress returns to 0.2 s later; in between, the hidden
-    // icons show for a short flash.
-    private static let liftHoldAfterPress: TimeInterval = 0.1
+    // macOS 27.2 dismisses the clock's panel when a restriction is re-applied
+    // while it is up (27.0.1 let it stay), and the panel takes ~0.2-0.3 s to
+    // appear, so the hiding stays lifted while `keepLifted` sees it. A press
+    // that opens nothing is not held beyond `liftInitialGrace`, so a failed
+    // click cannot leave the bar unrestricted for long.
+    private static let liftCheckInterval: TimeInterval = 0.5
+    private static let liftInitialGrace: TimeInterval = 2.0
+    // Safety valve: if the panel/menu state cannot be read, never leave the
+    // hiding off for longer than this.
+    private static let liftMaximumHold: TimeInterval = 600
 
     init(
         items: HiddenMenuItemProvider,
@@ -180,12 +191,14 @@ final class NativeVisibilityEngine: MenuBarEngine {
         return true
     }
 
-    // Releases the restriction, presses once the clock responds, and re-applies
-    // the cached sections: a fresh read takes about a second - far longer than
-    // the flash this is meant to be - and nothing was rearranged meanwhile.
-    // The separator stays off the bar throughout.
+    // Releases the restriction, presses once the clock responds, then keeps the
+    // hiding lifted while `keepLifted` says the panel it opened is still up, and
+    // re-applies the cached sections afterwards: a fresh read takes about a
+    // second - far longer than the flash this is meant to be - and nothing was
+    // rearranged meanwhile. The separator stays off the bar throughout.
     func liftHidingBriefly(
-        for press: @escaping () -> Void, completion: @escaping (CollapseResult) -> Void
+        for press: @escaping () -> Void, keepLifted: @escaping () -> Bool,
+        completion: @escaping (CollapseResult) -> Void
     ) -> Bool {
         guard state == .collapsed, !isLifted, assertion != nil, let layout = layout else {
             return false
@@ -197,25 +210,65 @@ final class NativeVisibilityEngine: MenuBarEngine {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.liftSettleDelay) { [weak self] in
             guard let self = self, self.isLifted, liftID == self.liftID else { return }
             press()
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.liftHoldAfterPress) {
-                [weak self] in
-                guard let self = self, self.isLifted, liftID == self.liftID else { return }
-                self.activate(allowing: layout.bundles(in: [.visible])) { [weak self] succeeded in
-                    guard let self = self, self.isLifted, liftID == self.liftID else { return }
-                    self.isLifted = false
-                    if succeeded {
-                        self.layout = layout
-                        completion(.collapsed)
-                    } else {
-                        // Fail open, as a collapse does.
-                        self.state = .expanded
-                        self.setItemsHidden(false)
-                        completion(.unavailable)
-                    }
-                }
-            }
+            self.checkLift(
+                layout: layout, liftID: liftID, started: Date(), sawOpen: false,
+                keepLifted: keepLifted, completion: completion)
         }
         return true
+    }
+
+    // Polls `keepLifted` until the panel/menu it describes is gone, then puts
+    // the hiding back. A press that opened nothing is given `liftInitialGrace`
+    // before the hiding goes back, since the panel appears asynchronously.
+    private func checkLift(
+        layout: MenuBarLayout, liftID: Int, started: Date, sawOpen: Bool,
+        keepLifted: @escaping () -> Bool,
+        completion: @escaping (CollapseResult) -> Void
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.liftCheckInterval) {
+            [weak self] in
+            guard let self = self, self.isLifted, liftID == self.liftID else { return }
+            let elapsed = Date().timeIntervalSince(started)
+            if keepLifted() {
+                if elapsed >= Self.liftMaximumHold {
+                    self.finishLift(layout: layout, liftID: liftID, completion: completion)
+                    return
+                }
+                self.checkLift(
+                    layout: layout, liftID: liftID, started: started, sawOpen: true,
+                    keepLifted: keepLifted, completion: completion)
+                return
+            }
+            if !sawOpen, elapsed < Self.liftInitialGrace {
+                self.checkLift(
+                    layout: layout, liftID: liftID, started: started, sawOpen: false,
+                    keepLifted: keepLifted, completion: completion)
+                return
+            }
+            self.finishLift(layout: layout, liftID: liftID, completion: completion)
+        }
+    }
+
+    private func finishLift(
+        layout: MenuBarLayout, liftID: Int,
+        completion: @escaping (CollapseResult) -> Void
+    ) {
+        guard isLifted, liftID == self.liftID else { return }
+        AppLogger.info(
+            "HiddenBar: clock click-through finished; putting the menu-bar hiding back")
+        activate(allowing: layout.bundles(in: [.visible])) { [weak self] succeeded in
+            guard let self = self, self.isLifted, liftID == self.liftID else { return }
+            self.isLifted = false
+            if succeeded {
+                self.layout = layout
+                completion(.collapsed)
+            } else {
+                // Fail open, as a collapse does.
+                self.state = .expanded
+                self.setItemsHidden(false)
+                completion(.unavailable)
+            }
+        }
     }
 
     // The sections as the user arranged them. Read fresh only from an
@@ -273,9 +326,12 @@ final class NativeVisibilityEngine: MenuBarEngine {
         // kept so the clock's calendar/widgets panel and Control Center's
         // modules survive the restriction.
         let systemUIBundles = ["com.apple.notificationcenterui", "com.apple.controlcenter"]
+        var seen = Set<String>()
         let allowed =
-            (ownBundleIdentifier.map { [$0] } ?? []) + bundles
-            + Self.alwaysVisibleBundles + systemUIBundles
+            ((ownBundleIdentifier.map { [$0] } ?? []) + bundles
+            + Self.alwaysVisibleBundles + systemUIBundles)
+            .filter { seen.insert($0).inserted }
+        AppLogger.info("NativeVisibility: allowing bundles \(allowed)")
         visibility.activate(
             allowedSystemItems: Self.systemItemsToKeep,
             allowedBundleIdentifiers: allowed

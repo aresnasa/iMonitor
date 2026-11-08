@@ -64,6 +64,10 @@ struct SettingsView: View {
 
             Divider()
 
+            StatusBarIconSettingsView()
+
+            Divider()
+
             ProcessColumnSettingsView()
 
             Divider()
@@ -109,6 +113,49 @@ struct SettingsView: View {
         let logFile = dir.appendingPathComponent("imonitor.log")
         let fileToSelect = FileManager.default.fileExists(atPath: logFile.path) ? logFile.path : nil
         NSWorkspace.shared.selectFile(fileToSelect, inFileViewerRootedAtPath: dir.path)
+    }
+}
+
+/// Width of iMonitor's own stats slot in the menu bar. The bars and network
+/// text are drawn centered, so a slot wider than the content shows up as empty
+/// space on both sides before the next icon.
+struct StatusBarIconSettingsView: View {
+    @AppStorage("statusBarWidth") private var width = 56.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Menu Bar Icon")
+                .font(.system(size: 11, weight: .semibold))
+
+            HStack(spacing: 6) {
+                Text("Width")
+                    .font(.system(size: 11))
+
+                Spacer()
+
+                Stepper(
+                    value: $width,
+                    in: AppConfig.minimumStatusBarWidth...AppConfig.maximumStatusBarWidth,
+                    step: 2,
+                    label: {
+                        Text("\(Int(width)) pt")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                )
+                .help("Width of the CPU / memory / network item in the menu bar")
+            }
+
+            Text(
+                "Fixed so the menu bar does not shift as network speeds change; "
+                    + "reduce it to close the gap before the next icon."
+            )
+            .font(.system(size: 9))
+            .foregroundColor(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        // Applied live by AppDelegate; no restart needed.
+        .onChange(of: width) { _ in AppConfig.notifyPreferencesChanged() }
     }
 }
 

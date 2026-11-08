@@ -46,6 +46,31 @@ enum MenuBarItemMover {
 
         let from = grabPoint(for: source, frame: sourceFrame)
         let to = CGPoint(x: targetFrame.midX, y: from.y)
+        drag(from: from, to: to) {
+            // Report what actually happened instead of assuming success. The
+            // tolerance must be tighter than the narrowest slot pitch, or a
+            // neighbouring item would look like a success.
+            let landed =
+                liveFrame(of: source.element).map { frame in
+                    abs(frame.midX - to.x) < 12
+                } ?? false
+            if !landed {
+                AppLogger.warn(
+                    "MenuBarItemMover: \(source.displayName) did not land on the target; "
+                        + "the system ignored the synthetic drag or grabbed another icon")
+            }
+            completion(landed)
+        }
+    }
+
+    /// Drag a status item from one point to another, for a caller that has no
+    /// MenuBarExtraInfo (the invisible compatibility anchor). Points are in
+    /// global display coordinates with the top-left origin, as AX frames are.
+    static func move(from: CGPoint, to: CGPoint, completion: @escaping () -> Void) {
+        drag(from: from, to: to, completion: completion)
+    }
+
+    private static func drag(from: CGPoint, to: CGPoint, completion: @escaping () -> Void) {
         let returnCursor = currentCursorInCGCoordinates()
         let eventSource = CGEventSource(stateID: .hidSystemState)
         let command: CGEventFlags = .maskCommand
@@ -66,25 +91,7 @@ enum MenuBarItemMover {
         }
         steps.append((0.12, { post(.leftMouseUp, at: to, flags: command, source: eventSource) }))
         steps.append((0.20, { _ = CGWarpMouseCursorPosition(returnCursor) }))
-        steps.append(
-            (
-                0.05,
-                {
-                    // Report what actually happened instead of assuming success. The
-                    // tolerance must be tighter than the narrowest slot pitch, or a
-                    // neighbouring item would look like a success.
-                    let landed =
-                        liveFrame(of: source.element).map { frame in
-                            abs(frame.midX - to.x) < 12
-                        } ?? false
-                    if !landed {
-                        AppLogger.warn(
-                            "MenuBarItemMover: \(source.displayName) did not land on the target; "
-                                + "the system ignored the synthetic drag or grabbed another icon")
-                    }
-                    completion(landed)
-                }
-            ))
+        steps.append((0.05, completion))
         run(steps)
     }
 

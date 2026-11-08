@@ -75,8 +75,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.contentView = ContentView()
         self.network = SharedStore.network
 
-        // Width: bars(4*3+2*2=16) + gap(4) + net text(~48)
-        self.statusBarItem = NSStatusBar.system.statusItem(withLength: 68)
+        // Width: bars(4*3+2*2=16) + gap(4) + fixed net text column(~31) plus
+        // a little padding. Configurable in Settings › Menu Bar Icon, because
+        // an overly wide slot reads as a gap before the next menu-bar icon.
+        let statusBarWidth = Self.clampedStatusBarWidth
+        self.statusBarItem = NSStatusBar.system.statusItem(withLength: statusBarWidth)
         // The stats icon is half of iMonitor's entire UI, so it gets the same
         // permanence as the chevron and the Hidden Bar arrow: an autosave name
         // gives macOS's menu-bar management (System Settings › Control Center)
@@ -92,7 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
             self.statusBarIcon = StatusBarIconView()
             statusBarIcon.frame = NSRect(
-                x: 0, y: 0, width: 68, height: NSStatusBar.system.thickness)
+                x: 0, y: 0, width: statusBarWidth, height: NSStatusBar.system.thickness)
             statusBarIcon.autoresizingMask = [.width, .height]
 
             button.subviews.forEach { $0.removeFromSuperview() }
@@ -108,9 +111,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         startMenuBarFeaturesIfPossible()
         syncMenuBarOverflowController()
         // The dropdown owns no status item, so its on/off toggle can apply
-        // live: keep the controller in step with the settings flag.
+        // live: keep the controller in step with the settings flag. The stats
+        // item's width also re-applies live.
         NotificationCenter.default.addObserver(
-            self, selector: #selector(overflowPreferencesChanged),
+            self, selector: #selector(preferencesChanged),
             name: AppConfig.preferencesChangedNotification, object: nil)
 
         refreshTimer = Timer.scheduledTimer(
@@ -187,6 +191,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         permissionOnboardingController?.present()
     }
 
+    /// Keep the menu-bar items dropdown in step with its settings toggle.
     private func setupHiddenBarFeatures() {
         guard !didSetupMenuBarFeatures else { return }
         didSetupMenuBarFeatures = true
@@ -237,8 +242,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func overflowPreferencesChanged() {
+    @objc private func preferencesChanged() {
+        applyStatusBarWidth()
         syncMenuBarOverflowController()
+    }
+
+    /// Settings-selected width of the stats slot, kept inside the range the
+    /// stepper offers (a stored value can be stale or hand-edited).
+    private static var clampedStatusBarWidth: CGFloat {
+        CGFloat(
+            min(
+                max(AppConfig.statusBarWidth, AppConfig.minimumStatusBarWidth),
+                AppConfig.maximumStatusBarWidth))
+    }
+
+    /// Apply the width to the live item; the icon view fills the button, so
+    /// it resizes with it and its content stays centered.
+    private func applyStatusBarWidth() {
+        guard let statusBarItem, let statusBarIcon else { return }
+        let width = Self.clampedStatusBarWidth
+        statusBarItem.length = width
+        statusBarIcon.frame.size.width = width
+        statusBarIcon.needsDisplay = true
     }
 
     /// Whether any of this app's windows is on screen. The auto-collapse timer
